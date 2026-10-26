@@ -33,3 +33,22 @@ The validation loader drops nothing.
 - Gamma fine-tune, stage two: 47.93 over all 22, against 47.9 logged. 21 of the 231 subsets give
   47.9.
 - All validation errors and both 2x2x2 training errors matched as originally stated.
+
+## A2 (2026-10-27): where the trajectories are re-analysed
+
+**Rule affected:** `reproduction_rule.md`, item 5 (all values of one comparison come from one
+environment). The rule itself is unchanged; this records the environment that satisfies it.
+
+**What happened.** The re-analysis started on the local workstation (macOS, arm64) and was stopped
+after 26 of the 42 runs because the machine was overloaded.
+
+**Change.** All 42 runs are re-analysed again, from the beginning, in one environment: a cluster CPU
+node (Linux, x86_64), with CPython 3.11.15 and the same package versions as the local ingest
+environment (numpy 2.4.6, ase 3.29.0, pymatgen 2026.5.4, pymatgen-analysis-diffusion 2025.11.15,
+kinisi 2.0.5, scipp 26.3.1, scipy 1.17.1, emcee 3.1.6), with the same code and settings. Every
+transport value in `data/md/` comes from that run. The 26 local results are not used for any
+result; they are compared with the cluster values as a check of platform dependence. The DFT and
+model ingest (`data/dft/`, `data/models/`) stays local; it enters different comparisons.
+
+**Results seen before the change.** Yes: the run-level reproduction classes of 10 of the 26 local
+runs had been computed (pymatgen R1 and kinisi R2 for all 10).
