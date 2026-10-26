@@ -1,0 +1,107 @@
+{
+ "evaluated": "2026-10-26",
+ "device": "cpu",
+ "labels_dtype": "float64",
+ "fingerprint_dtype": "float32",
+ "versions": {
+  "mace-torch": "0.3.16",
+  "torch": "2.12.1",
+  "ase": "3.29.0"
+ },
+ "training": {
+  "ftG": {
+   "mace_version": "0.3.16",
+   "foundation_file": "20231210mace128L0_energy_epoch249model",
+   "n_train": 22,
+   "n_valid": 5,
+   "atomic_energies_eV": {
+    "3": -333.11543950733324,
+    "15": -55.519239917888854,
+    "16": -277.59619958944444,
+    "17": -55.51923991788889
+   },
+   "hidden_irreps": "128x0e",
+   "interaction_layers": 2,
+   "correlation_order": 3,
+   "r_cut_A": 6.0,
+   "optimizer": "ADAM",
+   "batch_size": 4,
+   "learning_rate": 0.0001,
+   "weight_decay": 5e-07,
+   "stage_one_loss_weights": [
+    1.0,
+    10.0
+   ],
+   "stage_two_start_epoch": 90,
+   "stage_two_loss_weights": [
+    1000.0,
+    100.0
+   ],
+   "stage_two_learning_rate": 0.001,
+   "error_tables": {
+    "s1": {
+     "epoch": 89,
+     "train_rmse_e_meV_atom": 2.7,
+     "train_rmse_f_meV_A": 72.4,
+     "valid_rmse_e_meV_atom": 3.3,
+     "valid_rmse_f_meV_A": 78.9
+    },
+    "s2": {
+     "epoch": 116,
+     "train_rmse_e_meV_atom": 5.2,
+     "train_rmse_f_meV_A": 47.9,
+     "valid_rmse_e_meV_atom": 3.3,
+     "valid_rmse_f_meV_A": 62.4
+    },
+    "foundation_valid_rmse_f_meV_A": 234.43
+   }
+  },
+  "ftK": {
+   "mace_version": "0.3.16",
+   "foundation_file": "20231210mace128L0_energy_epoch249model",
+   "n_train": 24,
+   "n_valid": 3,
+   "atomic_energies_eV": {
+    "3": -333.1209572625167,
+    "15": -55.5201595437527,
+    "16": -277.6007977187637,
+    "17": -55.52015954375276
+   },
+   "hidden_irreps": "128x0e",
+   "interaction_layers": 2,
+   "correlation_order": 3,
+   "r_cut_A": 6.0,
+   "optimizer": "ADAM",
+   "batch_size": 4,
+   "learning_rate": 0.0001,
+   "weight_decay": 5e-07,
+   "stage_one_loss_weights": [
+    1.0,
+    10.0
+   ],
+   "stage_two_start_epoch": 90,
+   "stage_two_loss_weights": [
+    1000.0,
+    100.0
+   ],
+   "stage_two_learning_rate": 0.001,
+   "error_tables": {
+    "s1": {
+     "epoch": 89,
+     "train_rmse_e_meV_atom": 2.3,
+     "train_rmse_f_meV_A": 67.6,
+     "valid_rmse_e_meV_atom": 2.2,
+     "valid_rmse_f_meV_A": 70.3
+    },
+    "s2": {
+     "epoch": 119,
+     "train_rmse_e_meV_atom": 5.5,
+     "train_rmse_f_meV_A": 43.9,
+     "valid_rmse_e_meV_atom": 4.8,
+     "valid_rmse_f_meV_A": 57.1
+    },
+    "foundation_valid_rmse_f_meV_A": 216.23
+   }
+  }
+ }
+}

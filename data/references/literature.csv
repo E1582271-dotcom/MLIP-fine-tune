@@ -1,0 +1,6 @@
+ref_id,kind,material,quantity,value,value_low,value_high,unit,conditions,citation,doi
+wang2018,experiment,Li6PS5Cl,sigma_RT,3.15,,,mS/cm,"sintered at 550 C for 10 min; impedance at room temperature","S. Wang et al., ACS Appl. Mater. Interfaces 10, 42279-42285 (2018)",10.1021/acsami.8b15121
+li2025_compiled,experiment,Li6PS5Cl,sigma_RT,,0.06,1.1,mS/cm,"range of experimental values compiled for comparison by Li et al.","Z. Li et al., J. Power Sources (2025); arXiv:2403.14116",10.1016/j.jpowsour.2025.236632
+li2025_high_T,simulation,Li6PS5Cl,sigma_300K,2.20,,,mS/cm,"MLIP-MD, Arrhenius extrapolation of five points from 800 to 1200 K","Z. Li et al., J. Power Sources (2025); arXiv:2403.14116",10.1016/j.jpowsour.2025.236632
+li2025_low_T,simulation,Li6PS5Cl,sigma_300K,0.216,,,mS/cm,"MLIP-MD, Arrhenius extrapolation from 500 to 700 K; no Li hop in 100 ns at 300 K","Z. Li et al., J. Power Sources (2025); arXiv:2403.14116",10.1016/j.jpowsour.2025.236632
+adeli2019,experiment,Li5.5PS4.5Cl1.5,sigma_RT,9.4,,,mS/cm,"cold-pressed, 298 K; about four times Li6PS5Cl prepared the same way","P. Adeli et al., Angew. Chem. Int. Ed. 58, 8681-8686 (2019)",10.1002/anie.201814222

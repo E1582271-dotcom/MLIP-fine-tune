@@ -1,0 +1,68 @@
+{
+  "system": "Li6PS5Cl",
+  "baseline": false,
+  "fine_tuned": true,
+  "experiment_mS_cm": {
+    "Li6PS5Cl (sintered)": 3.15,
+    "Li6PS5Cl (mechanochem.)": 1.33
+  },
+  "per_run": [
+    {
+      "mlip": "mace",
+      "T": 1000.0,
+      "D_cm2_s": 2.9745519941445696e-05,
+      "sigma_mS_cm": 1221.953253424655,
+      "kinisi_D_cm2_s": 2.986076619591107e-05,
+      "kinisi_D_std_cm2_s": 1.99046549365918e-06,
+      "kinisi_sigma_mS_cm": 1226.6875978189094,
+      "kinisi_sigma_std_mS_cm": 81.76881058372025,
+      "n_frames": 4000
+    },
+    {
+      "mlip": "mace",
+      "T": 600.0,
+      "D_cm2_s": 2.256124001474252e-06,
+      "sigma_mS_cm": 154.47021204973896,
+      "kinisi_D_cm2_s": 9.983057201358552e-07,
+      "kinisi_D_std_cm2_s": 2.2316044562115506e-07,
+      "kinisi_sigma_mS_cm": 68.35107298139916,
+      "kinisi_sigma_std_mS_cm": 15.27914304962349,
+      "n_frames": 4000
+    },
+    {
+      "mlip": "mace",
+      "T": 800.0,
+      "D_cm2_s": 1.02776712162488e-05,
+      "sigma_mS_cm": 527.7615673320857,
+      "kinisi_D_cm2_s": 8.94189246734272e-06,
+      "kinisi_D_std_cm2_s": 6.810927038139373e-07,
+      "kinisi_sigma_mS_cm": 459.1689191242876,
+      "kinisi_sigma_std_mS_cm": 34.974319113750276,
+      "n_frames": 4000
+    }
+  ],
+  "arrhenius": {
+    "mace": {
+      "Ea_eV": 0.3347957404232727,
+      "sigma300_mS_cm": 0.45441777973535274,
+      "R2": 0.9980476575887649,
+      "n_points": 3,
+      "slope": -3885.143236825099,
+      "intercept": 17.865521646337907,
+      "weighted": true,
+      "slope_err": 178.49918263682997,
+      "intercept_err": 0.22294241173928553,
+      "Ea_err_eV": 0.015381869437761679,
+      "sigma300_min_mS_cm": 0.31121241984288284,
+      "sigma300_max_mS_cm": 0.6635195299848804
+    }
+  },
+  "caveats": [
+    "Fine-tuned MACE-MP-0 (27 Gamma-only QE/GBRV force labels, SWA), 416-atom / 200 ps production tier: validation force RMSE 234 -> 62.4 meV/A, but the potential stiffens (Ea 0.265 -> 0.335 eV) and sigma drops to 0.45 mS/cm (0.14x experiment).",
+    "Foundation model over-predicts (1.8x), fine-tuned under-predicts (0.14x) -> they bracket experiment; the fine-tuned band [0.31, 0.66] sits entirely below 3.15 mS/cm.",
+    "Stiffening attributed to Gamma-only k-points + GBRV pseudopotential + the small 27-config (mostly near-equilibrium) dataset -- 'fine-tuned' does NOT mean 'more accurate' here (docs/REPORT.md section 5).",
+    "Nernst-Einstein ignores ion correlation (no Haven ratio).",
+    "Single-crystal upper bound: no grain boundaries (real polycrystals are lower).",
+    "Argyrodite shows non-Arrhenius transport; linear extrapolation to 300 K adds error."
+  ]
+}

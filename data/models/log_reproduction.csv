@@ -1,0 +1,6 @@
+model,labels,epoch,logged_valid_rmse_f_meV_A,reevaluated_valid_rmse_f_meV_A,logged_train_rmse_f_meV_A,reevaluated_train_rmse_f_meV_A,train_evaluated_by_log,train_subsets_matching,train_check
+ftG_s1,gamma,89,78.9,78.90152227,72.4,72.17824497,20,11/231,true
+ftG_s2,gamma,116,62.4,62.36038653,47.9,47.93065702,20,21/231,true
+ftK_s1,k222,89,70.3,70.33111097,67.6,67.61551107,24,,true
+ftK_s2,k222,119,57.1,57.09620552,43.9,43.89026679,24,,true
+foundation,gamma,,234.43,234.4316451,,,,,
