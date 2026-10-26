@@ -1,0 +1,30 @@
+#!/bin/bash
+# Step 4 job -- DFT labelling with Quantum ESPRESSO on CPU (generation/labels/label_qe.py around mpirun pw.x).
+# QE module and the Python with ase come from generation/hpc/site.env (generation/hpc/site.env.example);
+# the July labels used QE 7.1 built with Intel MPI. CPU only: DFT needs FP64.
+# Normally submitted per snapshot by generation/labels/submit_shards.sh; by hand, from the repository root:
+#   qsub -v NCPUS=16,NPOOL=1,PWARGS='--start 0 --limit 1 --workdir generation/output/labels/qe_work_s0 --out generation/output/labels/labelled_s0.xyz' generation/labels/label_qe.pbs
+# Paths in PWARGS are relative to the repository root. Resumable: the driver skips configurations
+# already in --out, so resubmit to continue.
+#PBS -N li6_qe_label
+#PBS -l select=1:ncpus=16:mpiprocs=16:mem=24gb
+#PBS -l walltime=01:00:00
+#PBS -j oe
+
+set -eo pipefail
+cd "$PBS_O_WORKDIR"
+source generation/hpc/site.env
+NCPUS="${NCPUS:-16}"
+# One k-point (Gamma) cannot be split into pools: NPOOL=1. NPOOL must divide NCPUS.
+NPOOL="${NPOOL:-1}"
+echo "[pbs] host=$(hostname) start=$(date) ncpus=$NCPUS npool=$NPOOL QE=${QE_MODULE:-}"
+
+if [ -n "${QE_MODULE:-}" ]; then module load "$QE_MODULE"; fi
+command -v pw.x >/dev/null || { echo "[pbs] pw.x not on PATH"; exit 1; }
+PY="${LABEL_PYTHON:-python3}"
+"$PY" -c "import ase.io.espresso" || { echo "[pbs] ase missing for $PY"; exit 1; }
+export QE_PW_CMD="mpirun -np $NCPUS pw.x -npool $NPOOL"
+
+# shellcheck disable=SC2086  # PWARGS holds several arguments
+"$PY" generation/labels/label_qe.py --pseudo-dir generation/output/pseudo ${PWARGS:-}
+echo "[pbs] end=$(date)"

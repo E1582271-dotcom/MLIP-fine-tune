@@ -1,0 +1,27 @@
+#!/bin/bash
+# Step 6 job -- fine-tune MACE-MP-0 small on one GPU (generation/finetune/finetune_mace.sh in the container).
+# Container, package tree and foundation-model path come from generation/hpc/site.env
+# (generation/hpc/site.env.example). Each July run took about 2 minutes on one A40 (float32).
+# Submit from the repository root, adding site-specific qsub options (project, queue) yourself:
+#   qsub generation/finetune/finetune_mace.pbs                         # Gamma labels -> li6ps5cl_ft*.model
+#   qsub -v FT_NAME=li6ps5cl_ft27k,TRAIN_FILE=data/dft/training_sets/ftK_train.xyz,VALID_FILE=data/dft/training_sets/ftK_valid.xyz generation/finetune/finetune_mace.pbs
+#PBS -N li6_ft
+#PBS -l select=1:ngpus=1:ncpus=36:mem=240gb
+#PBS -l walltime=06:00:00
+#PBS -j oe
+
+set -eo pipefail
+cd "$PBS_O_WORKDIR"
+source generation/hpc/site.env
+echo "[pbs] host=$(hostname) start=$(date)"
+nvidia-smi --query-gpu=name,memory.total --format=csv,noheader 2>/dev/null || true
+
+if [ -n "${CONTAINER_MODULE:-}" ]; then module load "$CONTAINER_MODULE"; fi
+RUN=()   # empty CONTAINER_IMAGE: run on the host
+# shellcheck disable=SC2206  # CONTAINER_EXEC and CONTAINER_GPU_FLAG may hold several words
+if [ -n "${CONTAINER_IMAGE:-}" ]; then RUN=($CONTAINER_EXEC $CONTAINER_GPU_FLAG "$CONTAINER_IMAGE"); fi
+"${RUN[@]}" env \
+  PKG_BASE="$MACE_PKG_BASE" PKG_PYTHON="${PKG_PYTHON:-python3.10}" FOUNDATION="${MACE_FOUNDATION:-small}" \
+  FT_NAME="${FT_NAME:-li6ps5cl_ft}" TRAIN_FILE="${TRAIN_FILE:-}" VALID_FILE="${VALID_FILE:-}" \
+  bash generation/finetune/finetune_mace.sh
+echo "[pbs] end=$(date)  -> generation/output/finetune/models/${FT_NAME:-li6ps5cl_ft}_stagetwo.model"

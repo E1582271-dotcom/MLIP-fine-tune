@@ -1,0 +1,45 @@
+! Quantum ESPRESSO pw.x SCF input used for the DFT labels of the fine-tuning sets (one per snapshot).
+! REFERENCE ONLY: label_qe.py writes the real inputs with ase.io.espresso.write_espresso_in, using
+! exactly these settings (its defaults); edit the driver, not this file. pseudo_dir and outdir are
+! absolute paths in the generated files, and ASE adds empty namelists (&IONS, &CELL, ...).
+! The UPF file names are those of the July inputs of both label sets.
+!
+! Changes from the working repository's template, which predated the labelling run: K_POINTS is
+! gamma (was automatic 2 2 2), conv_thr is 1e-7 (was 1e-8), disk_io = 'none' is set and
+! verbosity = 'high' is dropped, as in the inputs the driver actually wrote. The 2x2x2 k-point
+! labels (label_qe.py --kpts 2x2x2) differ only in the last card: K_POINTS automatic / 2 2 2  0 0 0.
+
+&CONTROL
+    calculation   = 'scf'
+    tstress       = .true.            ! stress (stored as dft_stress, not used in training)
+    tprnfor       = .true.            ! forces (required for MLIP training)
+    outdir        = './generation/output/labels/qe_work_s0'
+    prefix        = 'li6ps5cl'
+    disk_io       = 'none'
+    pseudo_dir    = './generation/output/pseudo'   ! PBE UPF files for Li, P, S, Cl (fetch_pseudos.sh)
+/
+&SYSTEM
+    ecutwfc       = 60.0              ! Ry
+    ecutrho       = 480.0             ! Ry (8 x ecutwfc for ultrasoft potentials)
+    occupations   = 'smearing'
+    degauss       = 0.01              ! Ry
+    smearing      = 'gaussian'
+    ntyp          = 4
+    nat           = 52
+    ibrav         = 0                 ! cell given in CELL_PARAMETERS
+/
+&ELECTRONS
+    conv_thr      = 1e-07             ! Ry
+    mixing_beta   = 0.4
+/
+
+ATOMIC_SPECIES
+Li 6.94 li_pbe_v1.4.uspp.F.UPF
+P 30.973761998 p_pbe_v1.5.uspp.F.UPF
+S 32.06 s_pbe_v1.4.uspp.F.UPF
+Cl 35.45 cl_pbe_v1.4.uspp.F.UPF
+
+K_POINTS gamma
+
+! CELL_PARAMETERS angstrom (the 10.279498 A cubic cell of every snapshot) and
+! ATOMIC_POSITIONS angstrom (52 atoms) follow for each snapshot.
