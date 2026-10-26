@@ -1,0 +1,7 @@
+# Exact versions that rebuild the committed tables, figures and documents from data/ (Python 3.11).
+# pip install -r requirements-lock.txt && pip install -e . --no-deps
+numpy==2.4.6
+pandas==3.0.3
+matplotlib==3.11.0
+pytest==9.1.1
+ruff==0.15.20

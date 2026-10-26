@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mlip-fine-tune"
+version = "1.0.0"
+description = "Li6PS5Cl Li-ion conductivity from universal and DFT-fine-tuned machine-learning interatomic potentials"
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [{ name = "Jieao Jia" }]
+requires-python = ">=3.11"
+dependencies = ["numpy>=2.0", "pandas>=2.2", "matplotlib>=3.9"]
+
+[project.optional-dependencies]
+# Ingest layer: reads the raw backup (trajectories, QE runs, model files). Not needed to rebuild
+# tables, figures or documents from data/.
+ingest = ["ase>=3.23", "pymatgen>=2024.6", "pymatgen-analysis-diffusion>=2024.7", "kinisi>=2.0", "scipp>=24.0",
+          "mace-torch==0.3.16", "torch>=2.4"]
+dev = ["pytest>=8", "ruff>=0.6"]
+
+[project.scripts]
+mlipft = "mlipft.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+markers = ["ingest: needs the raw backup and the ingest dependencies (skipped in CI)"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+extend-exclude = ["src/mlipft/simulation/md.py"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+ignore = ["E501", "E741", "B905"]

@@ -1,0 +1,15 @@
+# Versions of the ingest layer used on 2026-10-26 (Python 3.11.15, macOS arm64, CPU).
+# pip install -r requirements-ingest.lock.txt && pip install -e . --no-deps
+numpy==2.4.6
+pandas==3.0.3
+matplotlib==3.11.0
+ase==3.29.0
+pymatgen==2026.5.4
+pymatgen-analysis-diffusion==2025.11.15
+kinisi==2.0.5
+scipp==26.3.1
+scipy==1.17.1
+emcee==3.1.6
+mace-torch==0.3.16
+torch==2.12.1
+e3nn==0.4.4

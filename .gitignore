@@ -17,3 +17,5 @@ dist/
 *.npz
 raw/
 generation/hpc/site.env
+# Everything the generation scripts write (structures, trajectories, labels, models; see generation/README.md).
+generation/output/
