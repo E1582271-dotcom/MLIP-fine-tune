@@ -1,0 +1,17 @@
+element,series,force_rmse_meV_A
+Li,label floor (Gamma vs 2x2x2),8.04737
+Li,foundation,132.317
+Li,ftG_s2,36.0051
+Li,ftK_s1,45.4941
+P,label floor (Gamma vs 2x2x2),19.277
+P,foundation,480.407
+P,ftG_s2,117.467
+P,ftK_s1,148.201
+S,label floor (Gamma vs 2x2x2),22.4539
+S,foundation,230.825
+S,ftG_s2,67.5681
+S,ftK_s1,75.8412
+Cl,label floor (Gamma vs 2x2x2),13.5361
+Cl,foundation,74.8665
+Cl,ftG_s2,35.9719
+Cl,ftK_s1,34.0996

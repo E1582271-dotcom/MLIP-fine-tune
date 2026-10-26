@@ -1,0 +1,43 @@
+run_id,series,family,temperature_K,kinisi_posterior_rel_std_percent,s_seed_percent,n_seeds,rule_tolerance_percent
+mace_52_050_600K,mace_52_050,"MACE-MP-0, 52 atoms",600,25.9872,0.72643,10,2.17929
+mace_52_050_800K,mace_52_050,"MACE-MP-0, 52 atoms",800,23.5473,0.594515,10,2
+mace_52_050_1000K,mace_52_050,"MACE-MP-0, 52 atoms",1000,14.7649,0.607352,10,2
+mattersim_52_050_600K,mattersim_52_050,"MatterSim, 52 atoms",600,26.03,1.0401,10,3.12031
+mattersim_52_050_800K,mattersim_52_050,"MatterSim, 52 atoms",800,29.37,0.777432,10,2.3323
+mattersim_52_050_1000K,mattersim_52_050,"MatterSim, 52 atoms",1000,16.3614,0.38139,10,2
+mace_52_100_600K,mace_52_100,"MACE-MP-0, 52 atoms",600,35.379,1.30088,10,3.90264
+mace_52_100_800K,mace_52_100,"MACE-MP-0, 52 atoms",800,12.9,0.407637,10,2
+mace_52_100_1000K,mace_52_100,"MACE-MP-0, 52 atoms",1000,14.2306,0.4083,10,2
+mattersim_52_100_600K,mattersim_52_100,"MatterSim, 52 atoms",600,34.5955,0.79628,10,2.38884
+mattersim_52_100_800K,mattersim_52_100,"MatterSim, 52 atoms",800,23.6227,0.7404,10,2.2212
+mattersim_52_100_1000K,mattersim_52_100,"MatterSim, 52 atoms",1000,29.7584,0.680031,10,2.04009
+mace_52_150_600K,mace_52_150,"MACE-MP-0, 52 atoms",600,29.6179,0.725822,10,2.17746
+mace_52_150_800K,mace_52_150,"MACE-MP-0, 52 atoms",800,22.6396,0.513997,10,2
+mace_52_150_1000K,mace_52_150,"MACE-MP-0, 52 atoms",1000,15.6229,0.339496,10,2
+mattersim_52_150_600K,mattersim_52_150,"MatterSim, 52 atoms",600,21.8041,0.739085,10,2.21725
+mattersim_52_150_800K,mattersim_52_150,"MatterSim, 52 atoms",800,21.4728,0.508127,10,2
+mattersim_52_150_1000K,mattersim_52_150,"MatterSim, 52 atoms",1000,13.5506,0.428518,10,2
+mace_416_200_600K,mace_416_200,"MACE-MP-0, 416 atoms",600,7.43494,0.325888,10,2
+mace_416_200_800K,mace_416_200,"MACE-MP-0, 416 atoms",800,8.53236,0.271025,10,2
+mace_416_200_1000K,mace_416_200,"MACE-MP-0, 416 atoms",1000,6.36412,0.124819,10,2
+mattersim_416_200_600K,mattersim_416_200,"MatterSim, 416 atoms",600,15.8828,0.54298,10,2
+mattersim_416_200_800K,mattersim_416_200,"MatterSim, 416 atoms",800,7.61881,0.16408,10,2
+mattersim_416_200_1000K,mattersim_416_200,"MatterSim, 416 atoms",1000,5.49134,0.1634,10,2
+ftG_416_200_600K,ftG_416_200,"Fine-tuned, Gamma labels",600,22.8406,0.786518,10,2.35956
+ftG_416_200_800K,ftG_416_200,"Fine-tuned, Gamma labels",800,7.81546,0.184306,10,2
+ftG_416_200_1000K,ftG_416_200,"Fine-tuned, Gamma labels",1000,6.71998,0.227371,10,2
+ftK_416_200_600K,ftK_416_200,"Fine-tuned, 2x2x2 labels",600,16.7209,0.424974,10,2
+ftK_416_200_800K,ftK_416_200,"Fine-tuned, 2x2x2 labels",800,8.52975,0.390656,10,2
+ftK_416_200_1000K,ftK_416_200,"Fine-tuned, 2x2x2 labels",1000,6.51947,0.161095,10,2
+clx000_416_150_600K,clx000_416_150,"Cl-excess (MACE-MP-0), 392-416 atoms",600,7.34668,0.403954,10,2
+clx000_416_150_800K,clx000_416_150,"Cl-excess (MACE-MP-0), 392-416 atoms",800,6.88482,0.224624,10,2
+clx000_416_150_1000K,clx000_416_150,"Cl-excess (MACE-MP-0), 392-416 atoms",1000,5.85795,0.157487,10,2
+clx025_408_150_600K,clx025_408_150,"Cl-excess (MACE-MP-0), 392-416 atoms",600,7.40383,0.212748,10,2
+clx025_408_150_800K,clx025_408_150,"Cl-excess (MACE-MP-0), 392-416 atoms",800,7.21937,0.189563,10,2
+clx025_408_150_1000K,clx025_408_150,"Cl-excess (MACE-MP-0), 392-416 atoms",1000,6.07742,0.154251,10,2
+clx050_400_150_600K,clx050_400_150,"Cl-excess (MACE-MP-0), 392-416 atoms",600,6.3181,0.153745,10,2
+clx050_400_150_800K,clx050_400_150,"Cl-excess (MACE-MP-0), 392-416 atoms",800,9.48701,0.322807,10,2
+clx050_400_150_1000K,clx050_400_150,"Cl-excess (MACE-MP-0), 392-416 atoms",1000,6.69829,0.231671,10,2
+clx075_392_150_600K,clx075_392_150,"Cl-excess (MACE-MP-0), 392-416 atoms",600,5.9428,0.215482,10,2
+clx075_392_150_800K,clx075_392_150,"Cl-excess (MACE-MP-0), 392-416 atoms",800,7.1581,0.20037,10,2
+clx075_392_150_1000K,clx075_392_150,"Cl-excess (MACE-MP-0), 392-416 atoms",1000,6.87718,0.245251,10,2

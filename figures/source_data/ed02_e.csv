@@ -1,0 +1,10 @@
+model,labels,epoch,set,logged_meV_A,reevaluated_meV_A,difference_meV_A,half_printed_digit_meV_A,configurations_in_log,subset_in_log
+ftG_s1,gamma,89,valid,78.9,78.9015,-0.00152227,0.05,,False
+ftG_s1,gamma,89,train,72.4,72.1782,0.221755,0.05,20,True
+ftG_s2,gamma,116,valid,62.4,62.3604,0.0396135,0.05,,False
+ftG_s2,gamma,116,train,47.9,47.9307,-0.030657,0.05,20,True
+ftK_s1,k222,89,valid,70.3,70.3311,-0.031111,0.05,,False
+ftK_s1,k222,89,train,67.6,67.6155,-0.0155111,0.05,24,False
+ftK_s2,k222,119,valid,57.1,57.0962,0.00379448,0.05,,False
+ftK_s2,k222,119,train,43.9,43.8903,0.00973321,0.05,24,False
+foundation,gamma,,valid,234.43,234.432,-0.0016451,0.005,,False

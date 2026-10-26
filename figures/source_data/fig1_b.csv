@@ -1,0 +1,22 @@
+kind,part,title,text,x0_mm,y0_mm,x1_mm,y1_mm
+step,,Structure,Li6PS5Cl; 52 atoms (a); 416 atoms (2x2x2),0,1,20,19
+step,,"MD, universal potentials","MACE-MP-0 small (foundation); MatterSim; 52 atoms: 50, 100, 150 ps; 416 atoms: 200 ps; 600, 800, 1000 K",25,1,70,19
+comparison,A,Against experiment,measured; Fig. 2,97,1,118,19
+arrow,,,"(20, 9) -> (25, 9)",20,9,25,9
+arrow,,"416 atoms, 200 ps","(70, 9) -> (97, 9)",70,9,97,9
+step,,27 configurations,frames 100-900; 9 per temperature,29,25.5,46,41
+step,,DFT labels,"QE 7.1, PBE; Gamma point; 2x2x2 k-points",50,25.5,68,41
+step,,Fine-tunes of MACE-MP-0,Gamma labels; 2x2x2 labels,72,25.5,93,41
+comparison,B,Against DFT labels,held-out; configurations; Fig. 3,97,25.5,118,41
+arrow,,"MACE-MP-0, 52 atoms, 50 ps","(37.5, 19) -> (37.5, 25.5)",37.5,19,37.5,25.5
+arrow,,,"(46, 33.25) -> (50, 33.25)",46,33.25,50,33.25
+arrow,,,"(68, 33.25) -> (72, 33.25)",68,33.25,72,33.25
+arrow,,,"(93, 33.25) -> (97, 33.25)",93,33.25,97,33.25
+comparison,D,Cl excess,Li6-xPS5-xCl1+x; x = 0-0.75; MACE-MP-0; 392-416 atoms; 150 ps; Ext. Data Fig. 8,0,25.5,20,47
+arrow,,,"(10, 19) -> (10, 25.5)",10,19,10,25.5
+step,,Fine-tuned MD,"416 atoms, 200 ps; same protocol",72,48,93,61
+comparison,C,Against the foundation model,"fine-tuned MD against MACE-MP-0 MD; 416 atoms, 200 ps; Fig. 4",29,48,68,61
+arrow,,Gamma: stage 2 2x2x2: stage 1,"(82.5, 41) -> (82.5, 48)",82.5,41,82.5,48
+arrow,,,"(72, 54.5) -> (68, 54.5)",72,54.5,68,54.5
+arrow,,,"(26.5, 19) -> (26.5, 54.5) -> (29, 54.5)",26.5,19,29,54.5
+note,,"Fine-tuned models are compared with DFT and with the foundation model, not with experiment.",,0,62,118,67

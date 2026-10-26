@@ -1,0 +1,6 @@
+series,composition,cl_content,source,enhancement_over_x0,enhancement_min,enhancement_max,kind
+clx000_416_150,Li6PS5Cl,1,published,1,1,1,MACE-MP-0
+clx025_408_150,Li5.75PS4.75Cl1.25,1.25,published,4.54748,3.1236,6.62043,MACE-MP-0
+clx050_400_150,Li5.5PS4.5Cl1.5,1.5,published,16.7721,11.6161,24.2169,MACE-MP-0
+clx075_392_150,Li5.25PS4.25Cl1.75,1.75,published,29.127,19.9129,42.6047,MACE-MP-0
+Li5.5PS4.5Cl1.5,Li5.5PS4.5Cl1.5,1.5,adeli2019,4,,,measured

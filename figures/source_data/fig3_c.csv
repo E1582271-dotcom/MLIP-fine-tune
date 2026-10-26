@@ -1,0 +1,41 @@
+model,labels,config_id,force_rmse_meV_A,drove_md,h3_label_floor_meV_A
+foundation,k222,H3 (all 3),216.234,True,16.3243
+foundation,k222,T600_f400,184.675,True,16.3243
+foundation,k222,T800_f200,222.208,True,16.3243
+foundation,k222,T800_f500,238.308,True,16.3243
+foundation,gamma,H3 (all 3),219.523,True,16.3243
+foundation,gamma,T600_f400,184.155,True,16.3243
+foundation,gamma,T800_f200,226.911,True,16.3243
+foundation,gamma,T800_f500,243.247,True,16.3243
+ftG_s2,k222,H3 (all 3),59.2894,True,16.3243
+ftG_s2,k222,T600_f400,42.5473,True,16.3243
+ftG_s2,k222,T800_f200,61.4496,True,16.3243
+ftG_s2,k222,T800_f500,70.4228,True,16.3243
+ftG_s2,gamma,H3 (all 3),60.2776,True,16.3243
+ftG_s2,gamma,T600_f400,44.1453,True,16.3243
+ftG_s2,gamma,T800_f200,60.8005,True,16.3243
+ftG_s2,gamma,T800_f500,72.489,True,16.3243
+ftK_s1,k222,H3 (all 3),70.3311,True,16.3243
+ftK_s1,k222,T600_f400,50.1209,True,16.3243
+ftK_s1,k222,T800_f200,70.8311,True,16.3243
+ftK_s1,k222,T800_f500,85.5,True,16.3243
+ftK_s1,gamma,H3 (all 3),73.1624,True,16.3243
+ftK_s1,gamma,T600_f400,51.5842,True,16.3243
+ftK_s1,gamma,T800_f200,72.2961,True,16.3243
+ftK_s1,gamma,T800_f500,90.3912,True,16.3243
+ftG_s1,k222,H3 (all 3),72.8188,False,16.3243
+ftG_s1,k222,T600_f400,57.3682,False,16.3243
+ftG_s1,k222,T800_f200,72.6936,False,16.3243
+ftG_s1,k222,T800_f500,85.6286,False,16.3243
+ftG_s1,gamma,H3 (all 3),73.8239,False,16.3243
+ftG_s1,gamma,T600_f400,55.8738,False,16.3243
+ftG_s1,gamma,T800_f200,72.6033,False,16.3243
+ftG_s1,gamma,T800_f500,89.2007,False,16.3243
+ftK_s2,k222,H3 (all 3),57.0962,False,16.3243
+ftK_s2,k222,T600_f400,38.5264,False,16.3243
+ftK_s2,k222,T800_f200,60.6015,False,16.3243
+ftK_s2,k222,T800_f500,67.9934,False,16.3243
+ftK_s2,gamma,H3 (all 3),60.2988,False,16.3243
+ftK_s2,gamma,T600_f400,43.5282,False,16.3243
+ftK_s2,gamma,T800_f200,62.315,False,16.3243
+ftK_s2,gamma,T800_f500,71.6239,False,16.3243

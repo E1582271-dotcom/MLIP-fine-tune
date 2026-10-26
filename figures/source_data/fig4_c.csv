@@ -1,0 +1,4 @@
+model,series,md_model,sigma300_mS_cm,sigma300_min_mS_cm,sigma300_max_mS_cm,Ea_eV,Ea_err_eV
+foundation,mace_416_200,foundation,5.53612,4.18023,7.33179,0.265581,0.0117987
+ftG,ftG_416_200,ftG_s2,0.453579,0.308501,0.666881,0.33489,0.0156478
+ftK,ftK_416_200,ftK_s1,0.260328,0.185668,0.36501,0.359863,0.0138529

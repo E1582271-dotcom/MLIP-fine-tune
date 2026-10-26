@@ -1,0 +1,43 @@
+run_id,series,label,part,model,n_atoms,production_ps,temperature_K,published_july_2026,pymatgen_class,kinisi_D_class,kinisi_std_class,run_log,run_log_survives,row_y_mm,cell_x_mm
+mace_52_050_600K,mace_52_050,"MACE-MP-0, 52 atoms, 50 ps",A,foundation,52,50,600,True,R1,R2,R2,md_runs_mace_baseline.json,True,7.5,42
+mace_52_050_800K,mace_52_050,"MACE-MP-0, 52 atoms, 50 ps",A,foundation,52,50,800,True,R1,R2,R2,md_runs_mace_baseline.json,True,7.5,54.2
+mace_52_050_1000K,mace_52_050,"MACE-MP-0, 52 atoms, 50 ps",A,foundation,52,50,1000,True,R1,R2,R2,md_runs_mace_baseline.json,True,7.5,66.4
+mattersim_52_050_600K,mattersim_52_050,"MatterSim, 52 atoms, 50 ps",A,mattersim,52,50,600,True,R1,R2,R2,md_runs.json,True,10.5,42
+mattersim_52_050_800K,mattersim_52_050,"MatterSim, 52 atoms, 50 ps",A,mattersim,52,50,800,True,R1,R2,R2,md_runs.json,True,10.5,54.2
+mattersim_52_050_1000K,mattersim_52_050,"MatterSim, 52 atoms, 50 ps",A,mattersim,52,50,1000,True,R1,R2,R2,md_runs.json,True,10.5,66.4
+mace_52_100_600K,mace_52_100,"MACE-MP-0, 52 atoms, 100 ps",A,foundation,52,100,600,False,,,,,False,13.5,42
+mace_52_100_800K,mace_52_100,"MACE-MP-0, 52 atoms, 100 ps",A,foundation,52,100,800,False,,,,,False,13.5,54.2
+mace_52_100_1000K,mace_52_100,"MACE-MP-0, 52 atoms, 100 ps",A,foundation,52,100,1000,False,,,,,False,13.5,66.4
+mattersim_52_100_600K,mattersim_52_100,"MatterSim, 52 atoms, 100 ps",A,mattersim,52,100,600,False,,,,md_runs_100ps.json,True,16.5,42
+mattersim_52_100_800K,mattersim_52_100,"MatterSim, 52 atoms, 100 ps",A,mattersim,52,100,800,False,,,,md_runs_100ps.json,True,16.5,54.2
+mattersim_52_100_1000K,mattersim_52_100,"MatterSim, 52 atoms, 100 ps",A,mattersim,52,100,1000,False,,,,md_runs_100ps.json,True,16.5,66.4
+mace_52_150_600K,mace_52_150,"MACE-MP-0, 52 atoms, 150 ps",A,foundation,52,150,600,True,R1,R2,R2,md_runs_long.json,True,19.5,42
+mace_52_150_800K,mace_52_150,"MACE-MP-0, 52 atoms, 150 ps",A,foundation,52,150,800,True,R1,R2,R2,md_runs_long.json,True,19.5,54.2
+mace_52_150_1000K,mace_52_150,"MACE-MP-0, 52 atoms, 150 ps",A,foundation,52,150,1000,True,R1,R2,R2,md_runs_long.json,True,19.5,66.4
+mattersim_52_150_600K,mattersim_52_150,"MatterSim, 52 atoms, 150 ps",A,mattersim,52,150,600,True,R1,R2,R2,,False,22.5,42
+mattersim_52_150_800K,mattersim_52_150,"MatterSim, 52 atoms, 150 ps",A,mattersim,52,150,800,True,R1,R2,R2,,False,22.5,54.2
+mattersim_52_150_1000K,mattersim_52_150,"MatterSim, 52 atoms, 150 ps",A,mattersim,52,150,1000,True,R1,R2,R2,,False,22.5,66.4
+mace_416_200_600K,mace_416_200,"MACE-MP-0, 416 atoms, 200 ps",A,foundation,416,200,600,True,R1,R2,R2,md_runs_prod.json,True,25.5,42
+mace_416_200_800K,mace_416_200,"MACE-MP-0, 416 atoms, 200 ps",A,foundation,416,200,800,True,R1,R2,R2,,False,25.5,54.2
+mace_416_200_1000K,mace_416_200,"MACE-MP-0, 416 atoms, 200 ps",A,foundation,416,200,1000,True,R1,R2,R2,,False,25.5,66.4
+mattersim_416_200_600K,mattersim_416_200,"MatterSim, 416 atoms, 200 ps",A,mattersim,416,200,600,True,R1,R2,R2,md_runs_prod_ms.json,True,28.5,42
+mattersim_416_200_800K,mattersim_416_200,"MatterSim, 416 atoms, 200 ps",A,mattersim,416,200,800,True,R1,R2,R2,,False,28.5,54.2
+mattersim_416_200_1000K,mattersim_416_200,"MatterSim, 416 atoms, 200 ps",A,mattersim,416,200,1000,True,R1,R2,R2,,False,28.5,66.4
+ftG_416_200_600K,ftG_416_200,"Fine-tuned on Gamma labels, 416 atoms, 200 ps",C,ftG,416,200,600,True,R1,R2,R2,,False,33.1,42
+ftG_416_200_800K,ftG_416_200,"Fine-tuned on Gamma labels, 416 atoms, 200 ps",C,ftG,416,200,800,True,R1,R2,R2,,False,33.1,54.2
+ftG_416_200_1000K,ftG_416_200,"Fine-tuned on Gamma labels, 416 atoms, 200 ps",C,ftG,416,200,1000,True,R1,R2,R2,,False,33.1,66.4
+ftK_416_200_600K,ftK_416_200,"Fine-tuned on 2x2x2 labels, 416 atoms, 200 ps",C,ftK,416,200,600,False,,,,,False,36.1,42
+ftK_416_200_800K,ftK_416_200,"Fine-tuned on 2x2x2 labels, 416 atoms, 200 ps",C,ftK,416,200,800,False,,,,md_runs_ft27k.json,True,36.1,54.2
+ftK_416_200_1000K,ftK_416_200,"Fine-tuned on 2x2x2 labels, 416 atoms, 200 ps",C,ftK,416,200,1000,False,,,,,False,36.1,66.4
+clx000_416_150_600K,clx000_416_150,"Li6PS5Cl (x = 0), 150 ps",D,foundation,416,150,600,True,R1,R2,R2,,False,40.7,42
+clx000_416_150_800K,clx000_416_150,"Li6PS5Cl (x = 0), 150 ps",D,foundation,416,150,800,True,R1,R2,R2,,False,40.7,54.2
+clx000_416_150_1000K,clx000_416_150,"Li6PS5Cl (x = 0), 150 ps",D,foundation,416,150,1000,True,R1,R2,R2,md_runs_dope_cl100.json,True,40.7,66.4
+clx025_408_150_600K,clx025_408_150,"Li5.75PS4.75Cl1.25 (x = 0.25), 150 ps",D,foundation,408,150,600,True,R1,R2,R2,,False,43.7,42
+clx025_408_150_800K,clx025_408_150,"Li5.75PS4.75Cl1.25 (x = 0.25), 150 ps",D,foundation,408,150,800,True,R1,R2,R2,md_runs_dope_cl125.json,True,43.7,54.2
+clx025_408_150_1000K,clx025_408_150,"Li5.75PS4.75Cl1.25 (x = 0.25), 150 ps",D,foundation,408,150,1000,True,R1,R2,R2,,False,43.7,66.4
+clx050_400_150_600K,clx050_400_150,"Li5.5PS4.5Cl1.5 (x = 0.50), 150 ps",D,foundation,400,150,600,True,R1,R2,R2,,False,46.7,42
+clx050_400_150_800K,clx050_400_150,"Li5.5PS4.5Cl1.5 (x = 0.50), 150 ps",D,foundation,400,150,800,True,R1,R2,R2,,False,46.7,54.2
+clx050_400_150_1000K,clx050_400_150,"Li5.5PS4.5Cl1.5 (x = 0.50), 150 ps",D,foundation,400,150,1000,True,R1,R2,R2,md_runs_dope_cl150.json,True,46.7,66.4
+clx075_392_150_600K,clx075_392_150,"Li5.25PS4.25Cl1.75 (x = 0.75), 150 ps",D,foundation,392,150,600,True,R1,R2,R2,md_runs_dope_cl175.json,True,49.7,42
+clx075_392_150_800K,clx075_392_150,"Li5.25PS4.25Cl1.75 (x = 0.75), 150 ps",D,foundation,392,150,800,True,R1,R2,R2,,False,49.7,54.2
+clx075_392_150_1000K,clx075_392_150,"Li5.25PS4.25Cl1.75 (x = 0.75), 150 ps",D,foundation,392,150,1000,True,R1,R2,R2,,False,49.7,66.4

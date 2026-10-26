@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+message: "If you use this data or code, please cite it as below."
+title: "Li6PS5Cl Li-ion conductivity from universal and DFT-fine-tuned machine-learning interatomic potentials"
+authors:
+  - family-names: Jia
+    given-names: Jieao
+version: 1.0.0
+date-released: 2026-10-27
+license: MIT
+repository-code: "https://github.com/E1582271-dotcom/MLIP-fine-tune"
+keywords:
+  - solid-state electrolyte
+  - argyrodite
+  - machine-learning interatomic potential
+  - fine-tuning
+  - molecular dynamics
+  - density functional theory
+  - ionic conductivity
+  - MACE-MP-0
