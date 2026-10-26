@@ -19,7 +19,7 @@ test:
 	$(PYTHON) -m pytest -m "not ingest"
 
 lint:
-	ruff check src tests generation
+	ruff check src tests generation ingest
 
 # Rebuild everything from the committed data, run the tests and the repository checks, and require
 # an unchanged working tree.

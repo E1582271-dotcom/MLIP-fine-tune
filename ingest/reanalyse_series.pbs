@@ -1,0 +1,29 @@
+#!/bin/bash
+# Cluster job of the trajectory re-analysis (protocol amendment A2): one MD series, three runs, on
+# 12 CPU cores. Site settings come from ingest/site.env (copy ingest/site.env.example):
+#   qsub -v SERIES=mace_416_200 ingest/reanalyse_series.pbs      (one job per series, 14 in all)
+# The 2026-10-27 run used CPython 3.11.15 with numpy 2.4.6, ase 3.29.0, pymatgen 2026.5.4,
+# pymatgen-analysis-diffusion 2025.11.15, kinisi 2.0.5, scipp 26.3.1, scipy 1.17.1 and emcee 3.1.6
+# (a standalone Python with these packages, unpacked to node-local disk and run in a container).
+#PBS -N mlipft_md
+#PBS -l select=1:ncpus=12:mem=24gb
+#PBS -l walltime=03:00:00
+#PBS -j oe
+set -euo pipefail
+cd "${PBS_O_WORKDIR:-.}"
+source ingest/site.env
+REPO=$(pwd)
+LOCAL=$(mktemp -d /tmp/mlipft.XXXXXXXX)
+trap 'rm -rf -- "$LOCAL"' EXIT
+if [ -n "${ANALYSIS_ENV_SHA256:-}" ]; then echo "$ANALYSIS_ENV_SHA256  $ANALYSIS_ENV_TAR" | sha256sum -c -; fi
+tar -xf "$ANALYSIS_ENV_TAR" -C "$LOCAL"
+PY="$LOCAL/$ANALYSIS_ENV_PYTHON"
+echo "start $(date -Is) series $SERIES"
+RUN=(env OMP_NUM_THREADS=4 OPENBLAS_NUM_THREADS=4 MKL_NUM_THREADS=4 PYTHONWARNINGS=ignore MPLCONFIGDIR="$LOCAL/mpl"
+     "$PY" -E -s -u -B "$REPO/ingest/run_series.py" "$REPO" "$RAW_DIR" "$SERIES")
+if [ -n "${CONTAINER_IMAGE:-}" ]; then
+  $CONTAINER_EXEC $CONTAINER_BINDS --bind "$LOCAL:$LOCAL" "$CONTAINER_IMAGE" "${RUN[@]}"
+else
+  "${RUN[@]}"
+fi
+echo "end $(date -Is)"

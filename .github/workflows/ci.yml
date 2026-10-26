@@ -14,7 +14,7 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install ruff==0.15.20
-      - run: ruff check src tests generation
+      - run: ruff check src tests generation ingest
 
   test:
     runs-on: ubuntu-latest
