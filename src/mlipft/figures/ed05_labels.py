@@ -10,6 +10,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from matplotlib import transforms
 from matplotlib.lines import Line2D
 from matplotlib.patches import Rectangle
 
@@ -28,8 +29,8 @@ FLOOR_CONFIGS = paths.RESULTS / "label_floor_configs.csv"
 FORCES = paths.MODELS / "predictions_forces.csv.gz"
 LABEL_SETS = ("gamma", "k222")
 SUBSET_ORDER = ("T22", "H3", "H2")
-SUBSET_TEXT = {"T22": "trained on by both\nfine-tunes", "H3": "held out by both;\nthe primary test set",
-               "H2": "held out by the Gamma\nfine-tune only"}
+SUBSET_TEXT = {"T22": "trained on by both\nfine-tunes", "H3": "trained on by neither;\nvalidation set of both",
+               "H2": "trained on by the 2x2x2\nfine-tune only"}
 # Subset markers in b: the colours of the grid in a; the light T22 face gets a grey edge to stay visible.
 SUBSET_EDGES = {"T22": style.GRAY, "H2": style.GRAY, "H3": style.SUBSET_COLORS["H3"]}
 MARKER = 3.0
@@ -103,23 +104,35 @@ def _strip(ax, x: np.ndarray, values: np.ndarray, subsets) -> None:
                 markerfacecolor=style.SUBSET_COLORS[subset], markeredgecolor=SUBSET_EDGES[subset], zorder=3)
 
 
+def _subset_names(ax, configs: pd.DataFrame, x: np.ndarray) -> None:
+    """Name the shaded H3 and H2 columns above the frame, lifted clear of the frame line."""
+    lifted = transforms.offset_copy(ax.get_xaxis_transform(), fig=ax.figure, y=1.2, units="points")
+    for position, subset in zip(x, configs["subset"]):
+        if subset != "T22":
+            ax.text(position, 1.0, subset, transform=lifted, ha="center", va="bottom", fontsize=style.SMALL,
+                    color=style.BLACK if subset == "H3" else style.GRAY)
+
+
 def _panel_b(axes, configs: pd.DataFrame, floor: pd.DataFrame, floor_configs: pd.DataFrame) -> None:
     x = common.config_positions(configs)
     whole = floor[(floor["subset"] == "All27") & (floor["element"] == "all")].iloc[0]
     offset = _energy_offset(floor_configs)
     energy_ax, force_ax, pressure_ax = axes
     for ax in axes:
-        common.subset_bands(ax, configs, x, labels=ax is energy_ax)
+        common.subset_bands(ax, configs, x, labels=False)
         common.config_axis(ax, configs, x, labels=ax is pressure_ax)
         ax.yaxis.set_label_coords(-0.075, 0.5)
+    _subset_names(energy_ax, configs, x)
+    # every other frame is labelled (100, 300, ..., 900): 27 labels side by side read as one run of digits
+    pressure_ax.set_xticks(x, [str(f) if f % 200 == 100 else "" for f in configs["frame"]])
     right = x[-1] + 0.4  # annotations sit above the 1000 K configurations, where no column is shaded
 
     energy_ax.axhline(offset, **DASHED)
     _strip(energy_ax, x, floor_configs["energy_raw_meV_atom"].to_numpy(), floor_configs["subset"])
-    energy_ax.set_ylim(3.5, offset + 2.0)
+    energy_ax.set_ylim(3.5, offset + 2.3)
     energy_ax.set_yticks([4, 5, 6])
     energy_ax.set_ylabel("ΔE\n(meV/atom)")
-    energy_ax.text(right, offset + 1.85, f"Dashed: T22 mean offset, {offset:.2f} meV/atom", ha="right", va="top",
+    energy_ax.text(right, offset + 2.15, f"Dashed: T22 mean offset, {offset:.2f} meV/atom", ha="right", va="top",
                    fontsize=style.SMALL)
     energy_ax.set_title("Gamma minus 2x2x2 labels, per configuration", loc="left", fontsize=style.FONT_SIZE,
                         pad=9)
@@ -157,8 +170,10 @@ def _panel_c(axes, forces: pd.DataFrame, floor: pd.DataFrame, layout: common.Lay
         ax.plot([-limit, limit], [-limit, limit], **style.IDENTITY_LINE)
         ax.scatter(ref, val, s=1.2, facecolors=style.ELEMENT_COLORS[element], edgecolors="none", zorder=2)
         row = floor[(floor["subset"] == "All27") & (floor["element"] == element)].iloc[0]
-        ax.text(0.06, 0.95, element, transform=ax.transAxes, ha="left", va="top", fontsize=style.FONT_SIZE,
-                fontweight="bold", color=style.ELEMENT_COLORS[element])
+        ax.legend(handles=[Line2D([0], [0], marker="s", linestyle="none", markersize=4.0, markeredgecolor="none",
+                                  markerfacecolor=style.ELEMENT_COLORS[element], label=element)],
+                  loc="upper left", fontsize=style.FONT_SIZE, prop={"weight": "bold", "size": style.FONT_SIZE},
+                  handlelength=0.8, handletextpad=0.4, borderaxespad=0.5)
         ax.text(0.95, 0.05, f"RMSE {row['force_rmse_meV_A']:.1f} meV/Å\nslope {row['softening_slope']:.3f}",
                 transform=ax.transAxes, ha="right", va="bottom", fontsize=style.SMALL, linespacing=1.3)
         ax.set_xlim(-limit, limit)
@@ -233,8 +248,10 @@ def _panel_e(ax, forces: pd.DataFrame) -> None:
                   label=f"{element} ({int((species == element).sum())})")
         rows.append(pd.DataFrame({"element": element, "bin_low_eV_A": edges[:-1], "bin_high_eV_A": edges[1:],
                                   "density_per_eV_A": density}))
-    ax.set_xlim(0, 5.4)
-    ax.set_ylim(0, 1.75)
+    ax.set_xlim(-0.15, 5.55)  # outlines (zero-density bins, the edges at 0 and 5.4) clear of the spines
+    ax.set_ylim(-0.06, 1.75)
+    ax.set_xticks([0, 1, 2, 3, 4, 5])
+    ax.set_yticks([0, 0.5, 1.0, 1.5])
     ax.set_xlabel("2x2x2 force magnitude (eV/Å)")
     ax.set_ylabel("Probability density (Å/eV)")
     ax.legend(loc="upper right", fontsize=style.SMALL, handlelength=1.0, handletextpad=0.4, borderaxespad=0.4,
@@ -256,7 +273,7 @@ def make() -> list[Path]:
     _panel_b(axes_b, configs, floor, floor_configs)
 
     # row 2: c (four parity panels)
-    top2, size, step = 80.0, 30.0, 42.0
+    top2, size, step = 80.0, 30.0, 45.0
     axes_c = [L.axes(16.0 + i * step, top2, size, size, row="c", col="left" if i == 0 else None) for i in range(4)]
     _panel_c(axes_c, forces, floor, L, (16.0 + (3 * step + size) / 2, top2 + size + 5.0))
 
@@ -319,11 +336,13 @@ def _caption() -> str:
         f"Gamma point only, or a 2x2x2 Monkhorst-Pack mesh (taken as the reference). "
         f"**a**, The {n_configs} labelled configurations, frames 100-900 of the 52-atom, 50-ps MACE-MP-0 runs at "
         f"{_and(sorted(configs['temperature_K'].unique()))} K, by subset: T22, trained on by "
-        f"both fine-tunes (n = {counts['T22']}); H3, held out by both (n = {counts['H3']}: {h3_ids}), the primary "
-        f"test set; H2, held out by the Gamma fine-tune only (n = {counts['H2']}). "
-        f"{'No' if held_1000 == 0 else held_1000} 1000 K configuration is held out. "
+        f"both fine-tunes (n = {counts['T22']}); H3, trained on by neither (n = {counts['H3']}: {h3_ids}), the "
+        f"validation configurations of both fine-tunes, which therefore took part in selecting their epochs, and "
+        f"the subset of the primary comparison; H2, validation configurations of the Gamma fine-tune and "
+        f"training configurations of the 2x2x2 fine-tune (n = {counts['H2']}). "
+        f"{'No' if held_1000 == 0 else held_1000} 1000 K configuration is outside the training data. "
         f"**b**, Gamma minus 2x2x2 for each of the {n_configs} configurations, ordered by source temperature and "
-        f"frame and coloured by subset as in **a** (H3 and H2 columns shaded): energy per atom "
+        f"frame (every other frame labelled) and coloured by subset as in a (H3 and H2 columns shaded): energy per atom "
         f"({raw.min():.2f} to {raw.max():.2f} meV/atom; dashed line, the mean offset over T22, "
         f"{offset:.2f} meV/atom, which the energy comparisons subtract; centred RMSE over All27 "
         f"{f27.loc['all', 'energy_rmse_centred_meV_atom']:.2f} meV/atom), force RMSE over all components of a "
@@ -335,19 +354,19 @@ def _caption() -> str:
         f"**c**, Gamma against 2x2x2 force components of all atoms of the {n_configs} configurations, by element "
         f"(n = " + ", ".join(f"{atoms[e]} {e}" for e in common.ELEMENTS) + " atoms, three components each); "
         "RMSE (meV/A) and "
-        f"least-squares slope through the origin: {elements}. Dashed line, identity. "
-        f"**d**, Cost of the SCF single points: wall time of each configuration (n = {g['n']} per label set; horizontal line, "
-        f"median: {g['wall'] / 60:.0f} min with {g['k']} k-point on {g['mpi']} MPI processes; "
+        f"least-squares slope through the origin: {elements}. Dashed line, identity; no error bars. "
+        f"**d**, Cost of the SCF single points: wall time of each configuration (n = {g['n']} per label set; "
+        f"horizontal line, median: {g['wall'] / 60:.0f} min with {g['k']} k-point on {g['mpi']} MPI processes; "
         f"{k['wall'] / 3600:.1f} h with {k['k']} k-points on {k['mpi']} processes; {g['core_h']:.0f} and "
         f"{k['core_h']:.0f} core-hours for the {n_configs} configurations) and the number of SCF iterations "
-        f"({g['lo']}-{g['hi']} and {k['lo']}-{k['hi']}). "
+        f"({g['lo']}-{g['hi']} and {k['lo']}-{k['hi']}); single values, no error bars. "
         + ("The 2x2x2 wall and CPU times are printed by Quantum ESPRESSO in hours and minutes, so they are "
            "resolved to 1 min. " if minute else "")
         + f"**e**, Distribution of the 2x2x2 force magnitudes per element over the {n_configs} configurations "
         "(bins of 0.2 eV/A; atoms per element in the legend; mean "
         + ", ".join(f"{e} {means[e]:.2f}" for e in common.ELEMENTS)
         + f" eV/A); the Gamma distributions are indistinguishable at this scale (mean magnitudes differ by at most "
-        f"{mean_diff:.1f} meV/A). "
+        f"{mean_diff:.1f} meV/A); no error bars. "
         + common.sources([CONFIGS, QE_RUNS, PSEUDOPOTENTIALS, FLOOR, FLOOR_CONFIGS, FORCES])
     )
 

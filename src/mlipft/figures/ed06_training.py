@@ -20,7 +20,7 @@ from . import common, registry, style
 KEY = "training"
 NAME = registry.number(KEY)
 PANELS = "abc"
-WIDTH, HEIGHT = 183.0, 111.0
+WIDTH, HEIGHT = 183.0, 115.0
 RECORDS = {"ftG": paths.MODELS / "training" / "ftG_record.jsonl", "ftK": paths.MODELS / "training" / "ftK_record.jsonl"}
 EVALUATION = paths.MODELS / "evaluation.json"
 REPRODUCTION = paths.MODELS / "log_reproduction.csv"
@@ -28,7 +28,7 @@ CONFIGS = paths.DFT / "configs.csv"
 LABELS = {"ftG": "gamma", "ftK": "k222"}
 START_X = -9.0  # where the error before training (epoch null in the record) is drawn
 START_SIZE = 3.2  # marker of MACE-MP-0 before fine-tuning
-SELECTED_SIZE = 4.0  # markers of the selected models
+SELECTED_SIZE = 3.6  # markers of the selected models
 
 
 def _eval_lines(run: str) -> pd.DataFrame:
@@ -81,7 +81,7 @@ def _curves(ax, evaluation: dict, records: dict, column: str, start: bool) -> li
                          column: value})
     ax.text(stage_two + 1.0, 0.98, "stage two", transform=ax.get_xaxis_transform(), ha="left", va="top",
             fontsize=style.SMALL, color=style.CONTEXT_TEXT)
-    ax.set_xlim(START_X - 4.0, last + 2.0)
+    ax.set_xlim(START_X - 4.0, last + 4.0)  # room for the marker of the last selected epoch
     ticks = [0, 20, 40, 60, 80, 100, 120]
     ax.set_xticks([START_X, *ticks], ["start", *[str(t) for t in ticks]] if start else ["", *[str(t) for t in ticks]])
     if not start:
@@ -93,7 +93,7 @@ def _curves(ax, evaluation: dict, records: dict, column: str, start: bool) -> li
 
 def _panel_a(ax, evaluation: dict, records: dict) -> None:
     rows = _curves(ax, evaluation, records, "force_rmse_meV_A", start=True)
-    ax.set_ylim(0, 260)
+    ax.set_ylim(40, 250)  # the two stage-one selections at epoch 89 (78.9 and 70.3) stay apart
     ax.set_ylabel("Validation force RMSE (meV/Å)")
     style.save_source(pd.DataFrame(rows), NAME, "a")
 
@@ -177,15 +177,15 @@ def make() -> list[Path]:
     evaluation, records, reproduction, configs = _load()
     fig, L = common.new_figure(WIDTH, HEIGHT)
     _legend(fig, L, evaluation, 3.0)
-    ax_a = L.axes(14.0, 19.0, 84.0, 42.0, row="curves", col="left")  # the hero panel
+    ax_a = L.axes(14.0, 19.0, 84.0, 46.0, row="curves", col="left")  # the hero panel
     _panel_a(ax_a, evaluation, records)
-    ax_b = L.axes(116.0, 19.0, 65.0, 42.0, row="curves")
+    ax_b = L.axes(116.0, 19.0, 65.0, 46.0, row="curves")
     _panel_b(ax_b, evaluation, records)
-    ax_c = L.axes(12.0, 77.0, 169.0, 32.0, frame="none")
+    ax_c = L.axes(12.0, 81.0, 169.0, 32.0, frame="none")
     _panel_c(ax_c, evaluation, reproduction, configs)
     L.letter(ax_a, "a", 3.0, 18.0)
     L.letter(ax_b, "b", 105.0, 18.0)
-    L.letter(ax_c, "c", 3.0, 76.0)
+    L.letter(ax_c, "c", 3.0, 80.0)
     return L.save(*registry.target(KEY))
 
 
@@ -218,8 +218,8 @@ def _caption() -> str:
         f"{g['stage_two_loss_weights'][0]:g} and {g['stage_two_loss_weights'][1]:g}, learning rate "
         f"{g['stage_two_learning_rate']:g} and stochastic weight averaging). "
         f"**a**, Validation force RMSE and **b**, validation energy RMSE per atom against epoch, as written by "
-        f"MACE: one training run per fine-tune, each point a single evaluation of the whole validation set, so "
-        f"there are no error bars. The two curves use different validation sets and different labels and are not "
+        f"MACE: one training run per fine-tune, each point a single evaluation of the whole validation set "
+        f"(single values, no error bars). The two curves use different validation sets and different labels and are not "
         f"directly comparable: the Gamma fine-tune is validated on n = {g['n_valid']} configurations (V5 = H3 + H2) "
         f"against the Gamma labels, the 2x2x2 fine-tune on n = {k['n_valid']} (H3) against the 2x2x2 labels. Red "
         f"circles at 'start', MACE-MP-0 small before fine-tuning on the same validation sets "
@@ -227,14 +227,15 @@ def _caption() -> str:
         f"{tables['ftK']['foundation_valid_rmse_f_meV_A']:.1f} meV/A; dotted, joined to the first epoch). The "
         f"energy error before training is not drawn because it is an absolute energy error of the foundation model "
         f"(it depends on the reference energies), which this study does not report. Large circles, the selected "
-        f"models, coloured by model as in the table (c); open, stage one (epoch {sel['ftG']['s1']} for both; "
+        f"models, coloured by label set (navy, Gamma; blue, 2x2x2) as in the table (c); open, stage one (epoch {sel['ftG']['s1']} for both; "
         f"{tables['ftG']['s1']['valid_rmse_f_meV_A']:g} and {tables['ftK']['s1']['valid_rmse_f_meV_A']:g} meV/A); "
         f"filled, stage two (epochs {sel['ftG']['s2']} and {sel['ftK']['s2']}; "
         f"{tables['ftG']['s2']['valid_rmse_f_meV_A']:g} and {tables['ftK']['s2']['valid_rmse_f_meV_A']:g} meV/A). "
         f"The switch to the stage-two weights and learning rate raises the force error transiently (to "
         f"{spike['ftG']:.0f} and {spike['ftK']:.0f} meV/A). Logarithmic energy axis in b. "
         f"**c**, Errors in the training logs against the same errors re-evaluated from the model files in float64 "
-        f"on a CPU, as root-mean-square errors over the n configurations of each set (validation n = "
+        f"on a CPU, as root-mean-square errors over the n configurations of each set (single values, no error "
+        f"bars; validation n = "
         f"{g['n_valid']} for V5 and {k['n_valid']} for H3; training n = {g['n_train']} and {k['n_train']}). "
         f"Validation errors agree to within {max_valid_diff:.2f} meV/A (the logs print one decimal). "
         f"The logged training errors of the Gamma fine-tune cover {int(partial['train_evaluated_by_log'])} of its "

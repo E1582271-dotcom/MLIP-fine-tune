@@ -1,8 +1,8 @@
 """The Arrhenius fit of every series (Extended Data, registry key "arrhenius").
 
-One panel per series (14), grouped by part: A, the universal potentials on Li6PS5Cl (52-atom
-tiers and the 416-atom production runs); C, the two fine-tuned models; D, the Cl-excess series
-under MACE-MP-0. Each panel shows the per-run conductivity with its kinisi uncertainty, the quoted
+One panel per series (14), in groups: the universal potentials on Li6PS5Cl (52-atom tiers and
+the 416-atom production runs), the two fine-tuned models, and the Cl-excess series under
+MACE-MP-0. Each panel shows the per-run conductivity with its kinisi uncertainty, the quoted
 weighted fit (published value where one exists, otherwise the re-analysis) extrapolated to 300 K
 with its 1-sigma band, and a residual strip in units of each point's ln-space uncertainty. Colour
 by model (Cl content for the Cl-excess series), marker shape by run type, open markers for the stage-one model.
@@ -25,10 +25,13 @@ from . import common, registry, style
 KEY = "arrhenius"
 NAME = registry.number(KEY)
 PANELS = "abcdefghijklmn"
-WIDTH, HEIGHT = 183.0, 236.0
+WIDTH, HEIGHT = 183.0, 240.0
 FITS = paths.RESULTS / "fits.csv"
 TRANSPORT = paths.MD / "transport.csv"
 SOURCE_TEXT = {"published": "published fit", "reanalysis": "re-analysis fit"}
+# Descriptive group of each protocol part (fits.csv column "part"), written to the source data
+GROUPS = {"A": "universal potential, Li6PS5Cl", "C": "fine-tuned MACE-MP-0, Li6PS5Cl",
+          "D": "Cl-excess series, MACE-MP-0"}
 # Rows of the grid: (heading, series per column)
 ROWS = (
     ("Universal potentials, Li$_6$PS$_5$Cl", ("mace_52_050", "mace_52_100", "mace_52_150", "mace_416_200")),
@@ -177,7 +180,7 @@ def make() -> list[Path]:
     fits, transport = _load()
     fig, L = common.new_figure(WIDTH, HEIGHT)
     left, width, gap = 14.0, 38.5, 4.0
-    main_h, res_h, res_gap = 30.0, 8.5, 1.2
+    main_h, res_h, res_gap = 30.0, 8.5, 2.2  # res_gap: clear of the x tick marks of the conductivity axes
     title_h, heading_h, row_gap = 6.5, 5.0, 9.0
     letters = iter(PANELS)
     written = []
@@ -244,10 +247,11 @@ def _subscripts(formula: str) -> str:
 
 
 def _save_panel(frame: pd.DataFrame, fit: pd.Series, letter: str) -> Path:
-    for column in ("label", "part", "source", "Ea_eV", "Ea_err_eV", "sigma300_mS_cm", "sigma300_min_mS_cm",
+    for column in ("label", "source", "Ea_eV", "Ea_err_eV", "sigma300_mS_cm", "sigma300_min_mS_cm",
                    "sigma300_max_mS_cm", "slope", "intercept"):
         frame[column] = fit[column]
-    columns = ["series", "label", "part", "source", "kind", "run_id", "temperature_K", "inv_temperature_1000_per_K",
+    frame["group"] = GROUPS[fit["part"]]
+    columns = ["series", "label", "group", "source", "kind", "run_id", "temperature_K", "inv_temperature_1000_per_K",
                "sigma_mS_cm", "kinisi_sigma_std_mS_cm", "fit_sigma_mS_cm", "band_low_mS_cm", "band_high_mS_cm",
                "ln_sigma_error", "residual_normalised", "Ea_eV", "Ea_err_eV", "sigma300_mS_cm", "sigma300_min_mS_cm",
                "sigma300_max_mS_cm", "slope", "intercept"]
@@ -259,7 +263,6 @@ def _caption() -> str:
     order = _order()
     residuals = pd.concat([_points(transport, fits.loc[s], s) for s in order], ignore_index=True)
     worst = residuals.loc[residuals["residual_normalised"].abs().idxmax()]
-    reanalysed = [fits.loc[s, "label"] for s in order if fits.loc[s, "source"] == "reanalysis"]
     runs = transport[transport["series"].isin(order)].groupby("series").size()
     if set(runs) != {3}:
         raise ValueError("expected three runs per series")
@@ -268,6 +271,12 @@ def _caption() -> str:
     def bold(*series: str) -> str:
         return ", ".join(f"**{letter[s]}**" for s in series)
 
+    def label(series: str) -> str:
+        """The series label for use mid-sentence ("fine-tuned on ...", not "Fine-tuned on ...")."""
+        text = str(fits.loc[series, "label"])
+        return text[0].lower() + text[1:] if text.startswith("Fine-tuned") else text
+
+    reanalysed = [label(s) for s in order if fits.loc[s, "source"] == "reanalysis"]
     cl = [s for s in order if fits.loc[s, "part"] == "D"]
     xs = ", ".join(f"{fits.loc[s, 'cl_content'] - 1:.2f}" for s in cl)
     return (
@@ -280,7 +289,8 @@ def _caption() -> str:
         + ", MACE-MP-0 fine-tuned on the Gamma labels (stage two) and " + bold("ftK_416_200")
         + ", on the 2x2x2 labels (stage one), both under the production protocol; " + bold(*cl)
         + f", the Cl-excess series Li(6-x)PS(5-x)Cl(1+x) under MACE-MP-0 with x = {xs} (summarised in "
-        f"{registry.label('clexcess')}). "
+        f"{registry.label('clexcess')}; in these four panels the blues encode Cl content, light to dark for "
+        f"x = {xs}, and are unrelated to the blues of the fine-tuned models, which never share a panel with them). "
         "Markers, conductivity of each run at 600, 800 and 1000 K from the pymatgen diffusion coefficient (Nernst-"
         "Einstein, no Haven ratio); colour, model (Cl content for the Cl-excess series); shape, run type (circle, 416-atom "
         "production run; triangle, 52-atom run; inverted triangle, Cl-excess run); open, the stage-one model. "
@@ -294,7 +304,7 @@ def _caption() -> str:
         "Strips, residual ln sigma minus the quoted fit at each temperature in units of that point's ln-space "
         "uncertainty (kinisi standard deviation over sigma, from the re-analysis also for the published fits); grey "
         f"band, +/-1. With three temperatures and two parameters each fit has one degree of freedom; the largest "
-        f"residual is {worst['residual_normalised']:+.2f} ({fits.loc[worst['series'], 'label']}, "
+        f"residual is {worst['residual_normalised']:+.2f} ({label(worst['series'])}, "
         f"{worst['temperature_K']:.0f} K). Shared logarithmic "
         "conductivity axis in all panels. "
         + common.sources([FITS, TRANSPORT])

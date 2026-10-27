@@ -69,9 +69,9 @@ SCHEMATIC_FILL = "#F0F0F0"  # box fill in schematics
 WHITE = "#FFFFFF"
 
 # ------------------------------------------------------------------------------------------ models
+# Colour follows the label set of a fine-tune (Gamma navy, 2x2x2 blue); fill follows its training stage.
 MODEL_COLORS = {"foundation": DEEP_RED, "mattersim": LIGHT_RED,
-                "ftG": NAVY, "ftG_s2": NAVY, "ftK": BLUE, "ftK_s1": BLUE,
-                "ftG_s1": BLUE_MID, "ftK_s2": BLUE_LIGHT}
+                "ftG": NAVY, "ftG_s1": NAVY, "ftG_s2": NAVY, "ftK": BLUE, "ftK_s1": BLUE, "ftK_s2": BLUE}
 MODEL_LABELS = {"foundation": "MACE-MP-0", "mattersim": "MatterSim", "ftG": "Fine-tuned, Gamma labels",
                 "ftK": "Fine-tuned, 2x2x2 labels", "ftG_s1": "Gamma labels, stage one",
                 "ftG_s2": "Gamma labels, stage two", "ftK_s1": "2x2x2 labels, stage one",

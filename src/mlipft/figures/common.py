@@ -292,8 +292,9 @@ def subset_bands(ax, configs: pd.DataFrame, x: np.ndarray, labels: bool = True) 
             continue
         ax.axvspan(position - 0.45, position + 0.45, color=style.SUBSET_COLORS[subset],
                    alpha=0.18 if subset == "H3" else 0.12, lw=0, zorder=0)
-        if labels:
-            ax.text(position, 1.0, subset, transform=ax.get_xaxis_transform(), ha="center", va="bottom",
+        if labels:  # 2 pt above the frame, so the label never sits on the frame line
+            above = transforms.offset_copy(ax.get_xaxis_transform(), fig=ax.figure, y=2.0, units="points")
+            ax.text(position, 1.0, subset, transform=above, ha="center", va="bottom",
                     fontsize=style.SMALL, color=style.BLACK if subset == "H3" else style.GRAY)
 
 

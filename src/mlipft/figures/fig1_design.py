@@ -3,10 +3,10 @@
 a, the 52-atom Li6PS5Cl cell (config0) in an oblique projection, with the P-S bonds of its four PS4
 tetrahedra and the cell edges; its ordered S/Cl arrangement (Cl on 4a, S on 4c) is the one simulated by
 the AIMD reference. b, the study design (protocol amendment A3): every model is compared with DFT. Grey
-boxes are inputs and simulations; the three outlined boxes are the comparisons, each marked with the
-figure that shows it: forces and energies against the DFT labels; Li D of all four models against AIMD of
-the same ordered cell (Deng et al. 2017); fine-tuned MD against foundation MD with the reading fixed in
-advance. c, the 42 MD runs: published in July 2026 and reproduced here, or analysed here for the first
+boxes are inputs and simulations; the outlined boxes with a figure badge are the comparisons: forces and
+energies against the DFT labels; Li D of the 416-atom runs of all four models against AIMD of the same
+ordered cell (Deng et al. 2017; the 52-atom runs in the sampling figure); fine-tuned MD against foundation
+MD with the reading fixed in advance. c, the 42 MD runs: published in July 2026 and reproduced here, or analysed here for the first
 time, and whether the July run log survives.
 """
 from __future__ import annotations
@@ -16,17 +16,21 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from matplotlib.font_manager import FontProperties
 from matplotlib.lines import Line2D
 from matplotlib.patches import FancyArrowPatch, FancyBboxPatch, Rectangle
+from matplotlib.textpath import TextToPath
+from matplotlib.transforms import Affine2D
 
 from .. import io, paths
 from ..constants import SERIES, TEMPERATURES, run_id
+from ..transport import reproduction as repro
 from . import common, registry, style
 
 KEY = "design"
 NAME = registry.number(KEY)
 PANELS = "abc"
-WIDTH, HEIGHT = 183.0, 143.0
+WIDTH, HEIGHT = 183.0, 142.65
 STRUCTURE = paths.STRUCTURES / "config0.cif"
 CONFIGS = paths.DFT / "configs.csv"
 QE_RUNS = paths.DFT / "qe_runs.csv"
@@ -36,16 +40,19 @@ AIMD = paths.REFERENCES / "aimd_deng2017" / "transport.csv"
 
 BOND_CUTOFF_A = 2.6
 ORIGIN_SHIFT = 0.18  # fractional shift of the drawn origin along (1, 1, 1): every PS4 unit lies inside the cell
-AZIMUTH_DEG, ELEVATION_DEG = 24.0, 17.0
-DIAMETER_A = {"Li": 0.72, "P": 0.78, "S": 1.15, "Cl": 1.25}
+AZIMUTH_DEG, ELEVATION_DEG = 30.0, 14.0  # the view with the fewest near-coincident atoms (none hides a Cl)
+DIAMETER_A = {"Li": 0.72, "P": 0.78, "S": 1.15, "Cl": 1.35}
 ELEMENT_ORDER = ("Li", "P", "S", "Cl")
-DEPTH_FADE = 0.40  # the farthest atoms are mixed with this much white
+CL_FACE = common.lighten(style.ELEMENT_COLORS["Cl"], 0.6)  # Cl: very light fill with a dark outline, unlike S
+DEPTH_SHRINK = 0.18  # depth cue: the farthest atoms are drawn this much smaller (the fill keeps the element colour)
 LINE_MM = 2.35  # line pitch of 5-pt text in the schematic
 TITLE_MM = 2.65  # line pitch of 6-pt bold titles in the schematic
-BASELINE_MM = 1.28  # baseline of a 5-pt line below the top of its letters (Arial)
+BASELINE_MM = 1.28  # baseline of a 5-pt line below the top of its letters (Arial); scales with the size
 BADGE_MM = (7.6, 3.3)  # figure badge of a comparison box (width, height)
 SWATCH_PT = 2.8  # marker diameter of the schematic and table swatches
-_FORMULA = re.compile(r"([A-Z][a-z]?)(\d+(?:\.\d+)?)")
+MARGIN_MM = 2.0  # outer margin of the figure
+_TEXT_PATH = TextToPath()  # font metrics without hinting, as in the PDF and SVG
+_ELEMENT = re.compile(r"([A-Z][a-z]?)(\d+(?:\.\d+)?(?:[-+]x)?)?")
 
 
 def _load():
@@ -58,14 +65,53 @@ def _load():
     return cell, configs, qe, reproduction, thermostat, aimd
 
 
-def _formula(text: str) -> str:
-    """Chemical formula with mathtext subscripts (Li5.75PS4.75Cl1.25 -> Li$_{5.75}$PS$_{4.75}$Cl$_{1.25}$)."""
-    return _FORMULA.sub(r"\1$_{\2}$", text)
+def _plain(markup: str) -> str:
+    """Text of ``_rich`` markup without the formula braces (source data)."""
+    return markup.replace("{", "").replace("}", "")
 
 
-def _plain(text: str) -> str:
-    """Mathtext subscripts removed (source-data text)."""
-    return re.sub(r"\$_\{([^}]*)\}\$", r"\1", text)
+def _pieces(markup: str) -> list[tuple[str, bool]]:
+    """Split text with chemical formulas in braces ("{Li6PS5Cl}, a = 10.28") into (text, is_subscript) pieces."""
+    pieces: list[tuple[str, bool]] = []
+    for index, part in enumerate(re.split(r"[{}]", markup)):
+        found = [(part, "")] if index % 2 == 0 else _ELEMENT.findall(part)
+        for text, subscript in found:
+            if pieces and not pieces[-1][1]:
+                pieces[-1] = (pieces[-1][0] + text, False)
+            elif text:
+                pieces.append((text, False))
+            if subscript:
+                pieces.append((subscript, True))
+    return [piece for piece in pieces if piece[0]]
+
+
+def _rich(target, transform, x: float, top: float, markup: str, size: float = style.FONT_SIZE,
+          ha: str = "left", **kwargs) -> list:
+    """Draw ``markup`` (formulas in braces) with real subscripts of at least 5 pt; returns the text artists.
+
+    Mathtext would shrink the subscripts of 5-7 pt text below 5 pt. Here every piece is its own text on one
+    baseline: ``x`` and ``top`` (top of the letters) are millimetres in ``transform``, whose y axis points down;
+    ``target`` is the axes or figure that receives the texts.
+    """
+    sub_size = max(style.SMALL, 0.7 * size)
+
+    def advance(text: str, points: float) -> float:  # pen advance in mm, spaces included; unhinted outlines
+        prop = FontProperties(size=points)
+        wide = _TEXT_PATH.get_text_width_height_descent(f"|{text}|", prop, ismath=False)[0]
+        bars = _TEXT_PATH.get_text_width_height_descent("||", prop, ismath=False)[0]
+        return (wide - bars) * 25.4 / 72.0
+
+    pieces = [(text, sub, advance(text, sub_size if sub else size)) for text, sub in _pieces(markup)]
+    total = sum(width for _, _, width in pieces)
+    pen = x - {"left": 0.0, "center": total / 2.0, "right": total}[ha]
+    baseline = top + BASELINE_MM * size / style.SMALL
+    drop = 0.22 * size * 25.4 / 72.0
+    artists = []
+    for text, sub, width in pieces:
+        artists.append(target.text(pen, baseline + (drop if sub else 0.0), text, transform=transform, ha="left",
+                                   va="baseline", fontsize=sub_size if sub else size, **kwargs))
+        pen += width
+    return artists
 
 
 # ----------------------------------------------------------------------------------------------- a: structure
@@ -131,6 +177,19 @@ def _project(points: np.ndarray, a: float) -> tuple[np.ndarray, np.ndarray, np.n
     return x, z * np.cos(el) + y * np.sin(el), y * np.cos(el) - z * np.sin(el)
 
 
+def _atom_look(element: str) -> dict:
+    """Fill and outline of an element (legend keywords): Cl very light with a dark outline, the others filled."""
+    if element == "Cl":
+        return {"markerfacecolor": CL_FACE, "markeredgecolor": style.BLACK, "markeredgewidth": 0.6}
+    return {"markerfacecolor": style.ELEMENT_COLORS[element], "markeredgecolor": style.DARK_GRAY,
+            "markeredgewidth": 0.3}
+
+
+def _figure_mm(layout: common.Layout):
+    """Transform of millimetres from the figure's top-left corner (y down) to display units."""
+    return Affine2D().scale(1.0 / layout.width, -1.0 / layout.height).translate(0.0, 1.0) + layout.fig.transFigure
+
+
 def _panel_a(ax, cell: dict, layout: common.Layout, box: tuple[float, float, float, float]) -> Path:
     a = cell["a"]
     atoms, bonds = _structure(cell)
@@ -156,22 +215,26 @@ def _panel_a(ax, cell: dict, layout: common.Layout, box: tuple[float, float, flo
     def shade(d: float) -> float:
         return (d - lo) / (hi - lo)
 
-    # painter's order: every atom, bond and cell edge gets a z-order from its depth (farthest first)
+    # painter's order: every atom, bond and cell edge gets a z-order from its depth (farthest first); depth is cued
+    # by size and outline only, so an element keeps its fill at every depth
     items = [(d, "atom", i) for i, d in enumerate(depth)]
     items += [((depth[i] + depth[j]) / 2.0, "bond", (i, j)) for i, j in bonds]
     items += [((cd[p] + cd[q]) / 2.0, "edge", (p, q)) for p, q in edges]
     items.sort(key=lambda item: (-item[0], item[1], str(item[2])))
     for rank, (d, kind, key) in enumerate(items):
         z = 2.0 + rank * 0.01
+        scale = 1.0 - DEPTH_SHRINK * shade(d)
         if kind == "atom":
             element = atoms.at[key, "element"]
-            ax.scatter([sx[key]], [sy[key]], s=(DIAMETER_A[element] * points_per_A) ** 2,
-                       facecolors=common.lighten(style.ELEMENT_COLORS[element], DEPTH_FADE * shade(d)),
-                       edgecolors=common.lighten(style.BLACK, 0.45 + 0.35 * shade(d)), linewidths=0.3, zorder=z)
+            look = _atom_look(element)
+            ax.scatter([sx[key]], [sy[key]], s=(DIAMETER_A[element] * points_per_A * scale) ** 2,
+                       facecolors=look["markerfacecolor"],
+                       edgecolors=common.lighten(look["markeredgecolor"], 0.45 * shade(d)),
+                       linewidths=look["markeredgewidth"], zorder=z)
         elif kind == "bond":
             i, j = key
-            ax.plot([sx[i], sx[j]], [sy[i], sy[j]], color=common.lighten(style.DARK_GRAY, DEPTH_FADE * shade(d)),
-                    lw=1.4, solid_capstyle="round", zorder=z)
+            ax.plot([sx[i], sx[j]], [sy[i], sy[j]], color=style.DARK_GRAY, lw=1.4 * scale, solid_capstyle="round",
+                    zorder=z)
         else:
             p, q = key
             front = hidden not in key
@@ -179,15 +242,14 @@ def _panel_a(ax, cell: dict, layout: common.Layout, box: tuple[float, float, flo
                     lw=0.6 if front else 0.45, zorder=z)
 
     counts = atoms["element"].value_counts()
-    handles = [Line2D([0], [0], marker="o", linestyle="none", markersize=DIAMETER_A[e] * 3.6,
-                      markerfacecolor=style.ELEMENT_COLORS[e], markeredgecolor=style.GRAY, markeredgewidth=0.3,
-                      label=f"{e} ({counts[e]})") for e in ELEMENT_ORDER]
+    handles = [Line2D([0], [0], marker="o", linestyle="none", markersize=DIAMETER_A[e] * 3.6, label=f"{e} ({counts[e]})",
+                      **_atom_look(e)) for e in ELEMENT_ORDER]
     handles.append(Line2D([0], [0], color=style.DARK_GRAY, lw=1.4, label=f"P-S < {BOND_CUTOFF_A:g} Å"))
     ax.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.0), ncol=5, fontsize=style.SMALL,
               handletextpad=0.5, columnspacing=0.9, borderaxespad=0.0, handlelength=1.1)
     formula = "".join(f"{e}{counts[e]}" for e in ELEMENT_ORDER)
-    layout.text(left + width / 2.0, top - 0.5, f"{_formula(formula)} ({_formula('Li6PS5Cl')}), a = {a:.2f} Å",
-                ha="center", va="bottom", fontsize=style.FONT_SIZE)
+    _rich(layout.fig, _figure_mm(layout), left + width / 2.0, top - 3.0, f"{{{formula}}} ({{Li6PS5Cl}}), a = {a:.2f} Å",
+          ha="center")
     sites = _anion_sites(cell)
     layout.text(left + width / 2.0, top + height + 6.0,
                 f"Ordered S/Cl: Cl on {sites['Cl']}, free S on {sites['free S']},\nthe arrangement of the AIMD "
@@ -226,11 +288,15 @@ class _Schematic:
             tx = x
             if isinstance(swatch, dict):
                 self.ax.plot(x + 0.8, y + 0.95, **{**swatch, "zorder": 4})
-                tx += 2.2
+                tx += 2.0
             elif swatch is not None:
                 self.ax.plot([x + 0.05, x + 1.55], [y + 0.95, y + 0.95], color=swatch, lw=1.6,
                              solid_capstyle="butt", zorder=4)
-                tx += 2.2
+                tx += 2.0
+            if "{" in text:  # a formula: 6-pt letters, 5-pt subscripts
+                _rich(self.ax, self.ax.transData, tx, y, text, size=style.FONT_SIZE, zorder=4)
+                y += LINE_MM + 0.7
+                continue
             # on the baseline, so that a tall glyph (the ring of Å) does not push its line down
             self.ax.text(tx, y + BASELINE_MM, text, ha="left", va="baseline", fontsize=style.SMALL, zorder=4)
             y += LINE_MM
@@ -312,6 +378,16 @@ def _aimd_facts(aimd: pd.DataFrame) -> dict:
             "time_step_fs": float(aimd["time_step_fs"].iloc[0])}
 
 
+def _label_set(model: str) -> str:
+    """"Gamma labels" or "2x2x2 labels": the DFT label set a fine-tune was trained on."""
+    return style.MODEL_LABELS[model].split(", ")[1]
+
+
+def _stage(model: str) -> str:
+    """"stage 2": the training stage of the model that drove a fine-tune's MD (fill encodes it)."""
+    return f"stage {style.MD_STAGE[model][1:]}"
+
+
 def _design_facts() -> dict:
     """Sizes and lengths of the MD series of the design (from the series catalogue)."""
     fine_tuned = {(sr["n_atoms"], sr["production_ps"]) for sr in SERIES if sr["model"] in ("ftG", "ftK")}
@@ -340,23 +416,23 @@ def _panel_b(ax, configs: pd.DataFrame, qe: pd.DataFrame, aimd: pd.DataFrame, wi
     protocol = f"{facts['n_prod']} atoms, {facts['ps_prod']} ps"
 
     # columns (mm): inputs | universal MD over configurations, DFT labels, fine-tunes | AIMD, against AIMD
-    col_in = (0.0, 19.0)
+    col_in = (0.0, 18.5)
     col_ref = (width - 22.0, width)
     x_right = col_ref[0] - 2.5  # connector: universal MD -> against AIMD
-    col_ft = (col_ref[0] - 28.0, col_ref[0] - 5.0)
-    col_dft = (col_ft[0] - 22.0, col_ft[0] - 4.0)
-    col_cfg = (col_dft[0] - 22.5, col_dft[0] - 4.0)
-    md = (col_in[1] + 5.0, col_ft[1])
+    md = (col_in[1] + 4.3, col_ref[0] - 5.0)
     x_left = md[0] + 1.8  # connector: universal MD -> fine-tuned against foundation
-    col_ftmd = (col_ft[0] + 3.6, col_ft[1])
+    col_cfg = (x_left + 2.4, x_left + 19.4)
+    col_dft = (col_cfg[1] + 3.6, col_cfg[1] + 20.6)
+    col_ft = (col_dft[1] + 3.6, md[1])
     x_elbow = col_ft[0] + 1.6  # connector: fine-tunes -> against DFT labels
+    col_ftmd = (x_elbow + 1.8, col_ft[1])
 
     r1, r2, r3, r4 = (1.0, 14.5), (21.0, 35.5), (42.0, 57.0), (63.5, 76.0)
     m1, m2, m3, m4 = [(lo + hi) / 2.0 for lo, hi in (r1, r2, r3, r4)]
     swatch = {"size": SWATCH_PT, "edge": 0.6}
 
     # inputs and simulations
-    s.box(*col_in, *r1, "Structure", [_formula("Li6PS5Cl"), "52 atoms (a)", f"{facts['n_prod']} atoms (2x2x2)"])
+    s.box(*col_in, *r1, "Structure", ["{Li6PS5Cl}", "52 atoms (a)", f"{facts['n_prod']} atoms (2x2x2)"])
     s.box(*md, *r1, "MD, universal potentials",
           [("MACE-MP-0 small (foundation)", common.model_style("foundation", **swatch)),
            ("MatterSim", common.model_style("mattersim", **swatch))],
@@ -367,23 +443,25 @@ def _panel_b(ax, configs: pd.DataFrame, qe: pd.DataFrame, aimd: pd.DataFrame, wi
            f"{ref['temperatures'][0]}-{ref['temperatures'][-1]} K", f"{ref['ps']:.0f} ps per T",
            registry.label("aimd", short=True)], centre=True)
     s.box(*col_in, r2[0], r3[1], "Cl excess",
-          ["Li$_{6-x}$PS$_{5-x}$Cl$_{1+x}$", f"x = {facts['cl_x'][0]:g}-"
+          ["{Li6-xPS5-xCl1+x}", f"x = {facts['cl_x'][0]:g}-"
            f"{facts['cl_x'][-1]:g}", "MACE-MP-0", f"{facts['cl_atoms'][0]}-{facts['cl_atoms'][-1]} atoms",
            f"{', '.join(str(v) for v in facts['cl_ps'])} ps", registry.label("clexcess", short=True)], centre=True)
     s.box(*col_cfg, *r2, f"{len(configs)}\nconfigurations", [f"frames {frames[0]}-{frames[-1]}",
                                                             f"{len(frames)} per temperature"])
     s.box(*col_dft, *r2, "DFT labels", [f"QE {qe_version}, PBE", ("Gamma point", style.LABEL_COLORS["gamma"]),
                                         ("2x2x2 k-points", style.LABEL_COLORS["k222"])])
-    s.box(*col_ft, *r2, "Fine-tunes of\nMACE-MP-0", [("Gamma labels", common.model_style("ftG", **swatch)),
-                                                    ("2x2x2 labels", common.model_style("ftK", **swatch))])
-    s.box(*col_ftmd, *r3, "Fine-tuned MD", [protocol, f"{', '.join(str(t) for t in TEMPERATURES)} K",
-                                            "Gamma: stage 2", "2x2x2: stage 1"])
+    s.box(*col_ft, *r2, "Fine-tunes of\nMACE-MP-0", [_label_set(model) for model in style.MD_STAGE])
+    s.box(*col_ftmd, *r3, "Fine-tuned MD", [(f"{_label_set(model)} ({_stage(model)})",
+                                             common.model_style(model, **swatch)) for model in style.MD_STAGE]
+          + [protocol, f"{', '.join(str(t) for t in TEMPERATURES)} K"])
 
     # the three comparisons, each marked with its figure
     s.box(col_cfg[0], col_dft[1], *r3, "Against DFT labels",
           ["forces and energies", "MACE-MP-0 and both fine-tunes", "held-out configurations"],
           figure=registry.label("forces"))
-    s.box(*col_ref, r3[0], r4[1], "Against\nAIMD", [f"Li D at {shared}", "all four models", "no extrapolation"],
+    s.box(*col_ref, r3[0], r4[1], "Against\nAIMD",
+          [f"Li D at {shared}", "no extrapolation", f"{facts['n_prod']}-atom runs of", "all four models",
+           "52-atom runs:", registry.label("sampling", "g", short=True)],
           figure=registry.label("diffusion"), centre=True)
     s.box(col_cfg[0], col_ft[1], *r4, "Fine-tuned against foundation",
           ["fine-tuned MD against MACE-MP-0 MD", "pre-registered reading"],
@@ -405,8 +483,10 @@ def _panel_b(ax, configs: pd.DataFrame, qe: pd.DataFrame, aimd: pd.DataFrame, wi
     s.arrow([(x_ftmd, r2[1]), (x_ftmd, r3[0])])
     x_ref = (col_ref[0] + col_ref[1]) / 2.0
     s.arrow([(x_ref, r2[1]), (x_ref, r3[0])])  # AIMD -> against AIMD
+    # the production runs leave the universal MD box level with their line ("416 atoms, 200 ps")
+    y_production = r1[0] + 1.3 + TITLE_MM + 0.9 + LINE_MM + 0.95
     y_universal, y_fine = r3[0] + 3.0, r3[0] + 9.0
-    s.arrow([(md[1], m1), (x_right, m1), (x_right, y_universal), (col_ref[0], y_universal)])
+    s.arrow([(md[1], y_production), (x_right, y_production), (x_right, y_universal), (col_ref[0], y_universal)])
     s.arrow([(col_ftmd[1], y_fine), (col_ref[0], y_fine)])
     s.arrow([(x_ftmd, r3[1]), (x_ftmd, r4[0])])
     s.arrow([(x_left, r1[1]), (x_left, m4), (col_cfg[0], m4)])
@@ -452,9 +532,13 @@ def _run_type(series: dict) -> str:
     return "cell_52" if series["n_atoms"] == 52 else "production"
 
 
-def _row_label(label: str) -> str:
-    name = label.split(", ")[0].replace("Fine-tuned on ", "Fine-tuned, ")
-    return _formula(name) if name.startswith("Li") else name
+def _row_label(series: pd.Series) -> str:
+    """Row name in its group: the potential, the fine-tune's label set and MD stage, or the Cl excess x."""
+    if series["run_type"] == "clexcess":
+        return re.search(r"\((x = [^)]*)\)", series["label"]).group(1)
+    if series["model"] in style.MD_STAGE:
+        return f"{_label_set(series['model'])} ({_stage(series['model'])})"
+    return style.MODEL_LABELS[series["model"]]
 
 
 def _panel_c(ax, runs: pd.DataFrame, width: float, height: float) -> Path:
@@ -464,8 +548,8 @@ def _panel_c(ax, runs: pd.DataFrame, width: float, height: float) -> Path:
     pitch, gap, header = 2.85, 1.6, 6.0
     cell_w, cell_h = 11.0, 2.5
     x_group, x_bracket, x_dot, x_label = 1.0, 11.6, 13.4, 15.2
-    x_cells = [43.0 + i * (cell_w + 1.2) for i in range(len(TEMPERATURES))]
-    x_atoms, x_ps = x_cells[-1] + cell_w + 6.0, x_cells[-1] + cell_w + 16.0
+    x_cells = [40.0 + i * (cell_w + 1.2) for i in range(len(TEMPERATURES))]
+    x_atoms, x_ps = x_cells[-1] + cell_w + 6.0, x_cells[-1] + cell_w + 19.0
     face = {True: style.DARK_GRAY, False: style.WHITE}
     series_ids = list(dict.fromkeys(runs["series"]))
     parts = [runs.loc[runs["series"] == sid, "part"].iloc[0] for sid in series_ids]
@@ -481,7 +565,7 @@ def _panel_c(ax, runs: pd.DataFrame, width: float, height: float) -> Path:
     for x, temperature in zip(x_cells, TEMPERATURES):
         ax.text(x + cell_w / 2.0, head, f"{temperature} K", ha="center", va="bottom", fontsize=style.SMALL)
     ax.text(x_atoms, head, "Atoms", ha="center", va="bottom", fontsize=style.SMALL)
-    ax.text(x_ps, head, "Production\n(ps)", ha="center", va="bottom", fontsize=style.SMALL, linespacing=1.0)
+    ax.text(x_ps, head, "Production (ps)", ha="center", va="bottom", fontsize=style.SMALL)
     ax.text(x_label, head, "Potential or composition", ha="left", va="bottom", fontsize=style.SMALL)
 
     for part in dict.fromkeys(parts):
@@ -497,7 +581,7 @@ def _panel_c(ax, runs: pd.DataFrame, width: float, height: float) -> Path:
         group = runs[runs["series"] == sid]
         first = group.iloc[0]
         ax.plot(x_dot, y, **common.model_style(first["model"], first["run_type"], size=SWATCH_PT, edge=0.6))
-        ax.text(x_label, y, _row_label(first["label"]), ha="left", va="center", fontsize=style.SMALL)
+        ax.text(x_label, y, _row_label(first), ha="left", va="center", fontsize=style.SMALL)
         ax.text(x_atoms, y, str(first["n_atoms"]), ha="center", va="center", fontsize=style.SMALL)
         ax.text(x_ps, y, str(first["production_ps"]), ha="center", va="center", fontsize=style.SMALL)
         for x, temperature in zip(x_cells, TEMPERATURES):
@@ -516,6 +600,8 @@ def _panel_c(ax, runs: pd.DataFrame, width: float, height: float) -> Path:
     n_pub, n_log = int(published.sum()), int(runs["run_log_survives"].sum())
     classes = {column: "/".join(sorted(set(runs.loc[published, column])))
                for column in ("pymatgen_class", "kinisi_D_class", "kinisi_std_class")}
+    if classes["kinisi_D_class"] != classes["kinisi_std_class"]:
+        raise ValueError("kinisi D and its uncertainty differ in reproduction class; reword the key")
     entries = [
         (face[True], "", f"Published in July 2026 and reproduced here ({n_pub} runs): pymatgen\n"
                          f"class {classes['pymatgen_class']}, kinisi D and its uncertainty class "
@@ -538,10 +624,11 @@ def _panel_c(ax, runs: pd.DataFrame, width: float, height: float) -> Path:
     ly += 1.4
     shapes = [("production", f"{runs.loc[runs['run_type'] == 'production', 'n_atoms'].iloc[0]} atoms, production"),
               ("cell_52", "52 atoms"), ("clexcess", "Cl-excess series")]
-    for index, model in enumerate(("foundation", "mattersim", "ftG", "ftK")):
+    for index, model in enumerate(("foundation", "mattersim", *style.MD_STAGE)):
+        name = style.MODEL_LABELS[model] + (f" ({_stage(model)})" if model in style.MD_STAGE else "")
         ax.plot(lx + 3.5, ly + index * 2.8, **common.model_style(model, size=SWATCH_PT, edge=0.6))
-        ax.text(lx + 9.0, ly + index * 2.8, style.MODEL_LABELS[model], ha="left", va="center", fontsize=style.SMALL)
-    sx = lx + 36.0
+        ax.text(lx + 9.0, ly + index * 2.8, name, ha="left", va="center", fontsize=style.SMALL)
+    sx = lx + 42.0
     for index, (kind, label) in enumerate(shapes):
         ax.plot(sx, ly + index * 2.8, marker=style.RUN_MARKERS[kind], markersize=SWATCH_PT, markeredgewidth=0.6,
                 markerfacecolor=style.DARK_GRAY, markeredgecolor=style.DARK_GRAY, linestyle="none")
@@ -557,19 +644,21 @@ def make() -> list[Path]:
     runs = _runs(reproduction, thermostat)
     fig, L = common.new_figure(WIDTH, HEIGHT)
 
-    box_a = (3.0, 11.0, 50.0, 54.0)
+    top = MARGIN_MM + 2.65  # bottom of the panel letters of the first row (their ascenders reach the margin)
+    box_a = (3.5, top + 5.0, 50.0, 54.0)
     ax_a = L.axes(*box_a, frame="none")
     sources = [_panel_a(ax_a, cell, L, box_a)]
-    b_left, b_top, b_width, b_height = 59.0, 4.0, 123.0, 84.0
+    b_left, b_top, b_height = 59.0, top - 2.0, 84.0
+    b_width = WIDTH - MARGIN_MM - b_left
     ax_b = L.axes(b_left, b_top, b_width, b_height, frame="none")
     sources.append(_panel_b(ax_b, configs, qe, aimd, b_width, b_height))
-    c_top, c_height = 93.0, 49.0
-    ax_c = L.axes(3.0, c_top, 179.0, c_height, frame="none")
-    sources.append(_panel_c(ax_c, runs, 179.0, c_height))
+    c_top, c_height = b_top + b_height + 5.0, HEIGHT - MARGIN_MM - (b_top + b_height + 5.0)
+    ax_c = L.axes(3.5, c_top, WIDTH - MARGIN_MM - 3.5, c_height, frame="none")
+    sources.append(_panel_c(ax_c, runs, WIDTH - MARGIN_MM - 3.5, c_height))
 
-    L.letter(ax_a, "a", 3.0, 6.0)
-    L.letter(ax_b, "b", 56.0, 6.0)
-    L.letter(ax_c, "c", 3.0, c_top - 1.0)
+    L.letter(ax_a, "a", 3.6, top)
+    L.letter(ax_b, "b", 56.0, top)
+    L.letter(ax_c, "c", 3.6, c_top - 1.0)
     return L.save(*registry.target(KEY)) + sources
 
 
@@ -587,6 +676,8 @@ def _caption() -> str:
     for sid in runs.loc[~published, "series"].unique():
         series = runs[runs["series"] == sid].iloc[0]
         name = series["label"].split(", ")[0].replace("Fine-tuned on ", "fine-tuned on ")
+        if series["model"] in style.MD_STAGE:
+            name += f" ({_stage(series['model'])})"
         new.append(f"{name}, {series['n_atoms']} atoms, {series['production_ps']} ps")
     classes = {column: ", ".join(sorted(set(runs.loc[published, column])))
                for column in ("pymatgen_class", "kinisi_D_class", "kinisi_std_class")}
@@ -599,50 +690,59 @@ def _caption() -> str:
         return ", ".join(values[:-1]) + f" and {values[-1]} {unit}"
 
     volume_ratio = (ref["a"] / cell["a"]) ** 3
+    stages = {model: f"{_label_set(model)} at {_stage(model)}" for model in style.MD_STAGE}
     return (
         registry.heading(KEY)
         + f"**a**, The 52-atom cell of every Li6PS5Cl run (Li{counts['Li']}P{counts['P']}S{counts['S']}Cl{counts['Cl']}, "
         f"cubic, a = {cell['a']:.4f} A; the lowest-Ewald-energy S/Cl ordering of the Materials Project cell), in an "
-        f"oblique orthographic projection, farther atoms lighter. The S/Cl arrangement is fully ordered, Cl on "
+        f"oblique orthographic projection; farther atoms are drawn smaller with lighter outlines, and every element "
+        f"keeps its fill (Cl very light with a dark outline). The S/Cl arrangement is fully ordered, Cl on "
         f"{sites['Cl']} and the free S on {sites['free S']}; the AIMD reference simulates the same arrangement. "
         f"The origin is shifted by {ORIGIN_SHIFT:g} along each axis so that the {counts['P']} PS4 tetrahedra "
         f"(P-S < {BOND_CUTOFF_A:g} A, minimum image; {len(bonds)} bonds) lie inside the drawn cell. The "
         f"{facts['n_prod']}-atom cell is its 2x2x2 supercell. "
         f"**b**, Study design (protocol amendment A3): every model is compared with DFT. Grey boxes, inputs and "
-        f"simulations; outlined boxes, the three comparisons, each marked with the figure that shows it. "
+        f"simulations; outlined boxes with a figure badge, the three comparisons and the figure that shows each; the "
+        f"banner below them states the rule they share. "
         f"Against DFT labels ({registry.label('forces')}): {len(configs)} configurations (frames "
         f"{frames[0]}-{frames[-1]}, {len(frames)} per source temperature) of the 52-atom, 50-ps MACE-MP-0 runs were "
         f"labelled with Quantum ESPRESSO {qe_version} (PBE) at the Gamma point ({k_points['gamma']} k-point) and on a "
         f"2x2x2 mesh ({k_points['k222']} k-points); MACE-MP-0 small was fine-tuned once on each label set, and the "
-        f"forces and energies of MACE-MP-0 and of both fine-tuned models are compared with these labels on held-out "
-        f"configurations. Against AIMD ({registry.label('diffusion')}): MD with the two universal potentials "
-        f"(MACE-MP-0 small, the foundation model, and MatterSim; 52 atoms for {listed(facts['tiers'], 'ps')} and "
-        f"{facts['n_prod']} atoms for {facts['ps_prod']} ps) and with the two fine-tuned models (the Gamma fine-tune "
-        f"at stage two, the 2x2x2 fine-tune at stage one; {facts['n_prod']} atoms, {facts['ps_prod']} ps), all at "
-        f"{listed(TEMPERATURES)}, is compared with AIMD of the same ordered cell through the Li diffusion "
-        f"coefficient D at {listed(ref['shared'])}, without extrapolation. The AIMD reference (Deng et al., Chem. "
-        f"Mater. 29, 281 (2017); {registry.label('aimd')}) has {ref['n_atoms']} atoms, a = {ref['a']:.2f} A (a "
-        f"{100 * (1 - volume_ratio):.0f} % smaller volume than here), a {ref['time_step_fs']:g}-fs time step and "
-        f"{ref['ps']:.0f} ps at each of {listed(ref['temperatures'])}. Fine-tuned against foundation "
-        f"({registry.label('finetune')}): the fine-tuned MD runs follow the protocol of the {facts['n_prod']}-atom, "
-        f"{facts['ps_prod']}-ps MACE-MP-0 runs and are compared with them through the reading fixed in advance "
-        f"(protocol/analysis_plan.md). The Cl-excess series Li6-xPS5-xCl1+x (x = {facts['cl_x'][0]:g}-"
-        f"{facts['cl_x'][-1]:g}; {facts['cl_atoms'][0]}-{facts['cl_atoms'][-1]} atoms, {facts['cl_ps'][0]} ps) runs "
-        f"with MACE-MP-0 ({registry.label('clexcess')}). Markers: red, the universal potentials; blue, the "
-        f"fine-tuned models, filled for the stage-two model and open for the stage-one model; black square, AIMD. "
-        f"Black and grey bars, the 2x2x2 and Gamma label sets. "
+        f"forces and energies of MACE-MP-0 and of the fine-tuned models are compared with these labels on held-out "
+        f"configurations. {common.naming_sentence(configs)} "
+        f"Against AIMD ({registry.label('diffusion')}): the {facts['n_prod']}-atom, {facts['ps_prod']}-ps MD runs of "
+        f"all four models (the two universal potentials, MACE-MP-0 small, the foundation model, and MatterSim; the "
+        f"two fine-tuned models, on the {stages['ftG']} and on the {stages['ftK']}) at {listed(TEMPERATURES)} are compared with "
+        f"AIMD of the same ordered cell through the Li diffusion coefficient D at {listed(ref['shared'])}, without "
+        f"extrapolation. The 52-atom runs of the universal potentials ({listed(facts['tiers'], 'ps')}), which have "
+        f"the cell size of the AIMD reference, are compared with it in {registry.label('sampling', 'g')}. The AIMD "
+        f"reference (Deng et al., Chem. Mater. 29, 281 (2017); {registry.label('aimd')}) has {ref['n_atoms']} atoms, "
+        f"a = {ref['a']:.2f} A (a {100 * (1 - volume_ratio):.0f} % smaller volume than here), a "
+        f"{ref['time_step_fs']:g}-fs time step and {ref['ps']:.0f} ps at each of {listed(ref['temperatures'])}. "
+        f"Fine-tuned against foundation ({registry.label('finetune')}): the fine-tuned MD runs follow the protocol "
+        f"of the {facts['n_prod']}-atom, {facts['ps_prod']}-ps MACE-MP-0 runs and are compared with them through the "
+        f"reading fixed in advance (protocol/analysis_plan.md). The Cl-excess series Li6-xPS5-xCl1+x "
+        f"(x = {facts['cl_x'][0]:g}-{facts['cl_x'][-1]:g}; {facts['cl_atoms'][0]}-{facts['cl_atoms'][-1]} atoms, "
+        f"{facts['cl_ps'][0]} ps) runs with MACE-MP-0 ({registry.label('clexcess')}). Markers: colour by potential "
+        f"(red, the universal potentials; dark blue, the fine-tune on the Gamma labels; blue, the fine-tune on the "
+        f"2x2x2 labels), fill by training stage (filled, stage 2 and the universal potentials; open, stage 1); black "
+        f"square, AIMD. Black and grey bars, the 2x2x2 and Gamma label sets. "
         f"**c**, The {len(runs)} MD runs (n = {len(runs)}: {n_pub} published, {len(runs) - n_pub} new; {n_log} with "
         f"a surviving run log), one per series and temperature, grouped into the universal potentials, the "
-        f"fine-tuned models and the Cl-excess series. Dark cells: the {n_pub} runs published in July 2026, "
-        f"re-analysed here from the same trajectories (pymatgen class {classes['pymatgen_class']} for every run, "
-        f"kinisi class {classes['kinisi_D_class']}; {registry.label('reproduction')}). White cells: the "
+        f"fine-tuned models (named by label set and the training stage of the model that drove the MD) and the "
+        f"Cl-excess series Li6-xPS5-xCl1+x (rows by x). Dark cells: the {n_pub} runs published in July 2026, "
+        f"re-analysed here from the same trajectories; every run is in pymatgen class {classes['pymatgen_class']} "
+        f"(D identical to the published value within a relative difference of {repro.PYMATGEN_EXACT:g}) and in "
+        f"kinisi class {classes['kinisi_D_class']} (D within max({repro.KINISI_SEED_FACTOR:g} s_seed, "
+        f"{100 * repro.KINISI_D_FLOOR:g} %) and its standard deviation within max({repro.KINISI_SEED_FACTOR:g} "
+        f"s_seed, {100 * repro.KINISI_STD_FLOOR:g} %) of the published values, s_seed being the scatter over ten "
+        f"sampling seeds; protocol/reproduction_rule.md; {registry.label('reproduction')}). White cells: the "
         f"{len(runs) - n_pub} runs analysed here for the first time ({'; '.join(new)}). 'log': the July run log "
         f"survives ({n_log} runs) and the thermostat statistics recomputed from the trajectory were checked against "
-        f"it; for the other {len(runs) - n_log} runs they come from the trajectory only. Markers: colour and fill by "
-        f"potential as in b; shape by run type (circle, {facts['n_prod']}-atom production run; triangle, 52-atom "
-        f"run; inverted triangle, Cl-excess series). "
+        f"it; for the other {len(runs) - n_log} runs they come from the trajectory only. Markers: colour by potential "
+        f"and fill by training stage as in b; shape by run type (circle, {facts['n_prod']}-atom production run; "
+        f"triangle, 52-atom run; inverted triangle, Cl-excess series). "
         + common.sources([STRUCTURE, CONFIGS, QE_RUNS, AIMD, REPRODUCTION, THERMOSTAT])
     )
-
 
 CAPTION = _caption()

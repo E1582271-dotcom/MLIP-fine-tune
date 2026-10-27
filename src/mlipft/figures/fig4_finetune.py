@@ -15,6 +15,8 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from matplotlib.collections import LineCollection
+from matplotlib.container import ErrorbarContainer
 from matplotlib.lines import Line2D
 
 from .. import constants as C
@@ -43,7 +45,9 @@ CAPTION_NAMES = {"foundation": "MACE-MP-0", "ftG": "Gamma-label run", "ftK": "2x
 STAGE_SUBSET, STAGE_LABELS = "H3", "k222"  # panel c: held-out H3 configurations against the 2x2x2 labels
 PRESSURE_LABELS = "k222"  # panel d: the DFT term cancels in the paired difference, either label set gives it
 KBAR_PER_GPA = 10.0
-B_OFFSETS = {"ftG": -0.13, "ftK": 0.13}  # horizontal offsets in panel b (category units)
+B_OFFSETS = {"ftG": -0.18, "ftK": 0.18}  # horizontal offsets in panel b (category units)
+PYMATGEN_SHIFT = 0.14  # pymatgen bar to the right of the kinisi circle in panel b (category units)
+D_BAND_ALPHA = {"ftG": 0.24, "ftK": 0.09}  # panel d bands: the two blues differ in lightness as well
 D_OFFSETS = {600: -0.012, 800: 0.0, 1000: 0.012}  # horizontal offsets in panel d (GPa), for clarity only
 MARKER = 3.6
 RING = 7.2  # diameter of the ring around the MD models in panel c (pt)
@@ -133,6 +137,14 @@ def _md_offsets(d: dict, fits: pd.DataFrame) -> pd.DataFrame:
                          "n_blocks": int(blocks.loc[run, "n_blocks"]),
                          "foundation_n_blocks": int(blocks.loc[base, "n_blocks"])})
     return pd.DataFrame(rows)
+
+
+def _errorbar_handle(label: str) -> ErrorbarContainer:
+    """Legend handle of a marker with a vertical error bar (drawn like the kinisi points), in a neutral grey."""
+    marker = Line2D([0], [0], marker=style.MLIP_MARKER, markersize=3.0, markeredgewidth=0.7, color=style.DARK_GRAY,
+                    linestyle="none")
+    bars = LineCollection([[(0.0, 0.0), (0.0, 1.0)]], colors=style.DARK_GRAY, linewidths=0.6)
+    return ErrorbarContainer((marker, (), (bars,)), has_xerr=False, has_yerr=True, label=label)
 
 
 # ----------------------------------------------------------------------------------------------- panels
@@ -231,13 +243,13 @@ def _panel_b(ax, d: dict, md: dict[str, str]) -> Path:
             x, kinisi, pymatgen = index + B_OFFSETS[family], row["kinisi_D_ratio"], row["pymatgen_D_ratio"]
             err = kinisi * row["kinisi_D_ratio_rel_err"]
             color = style.MODEL_COLORS[family]
-            ax.errorbar(x, kinisi, yerr=err, fmt="none", ecolor=color, elinewidth=0.6, capsize=1.3, zorder=2)
+            ax.errorbar(x, kinisi, yerr=err, fmt="none", ecolor=color, elinewidth=0.6, capsize=0.0, zorder=2)
             ax.plot(x, kinisi, **common.model_style(md[family], size=MARKER, zorder=3))
-            ax.plot(x, pymatgen, marker="_", markersize=6.0, markeredgewidth=1.1, color=color, linestyle="none",
-                    zorder=4)
+            ax.plot(x + PYMATGEN_SHIFT, pymatgen, marker="_", markersize=4.0, markeredgewidth=1.0, color=color,
+                    linestyle="none", zorder=4)
             rows.append({"model": family, "md_model": md[family], "reference": "foundation",
-                         "temperature_K": temperature, "x": x, "kinisi_D_ratio": kinisi, "kinisi_D_ratio_err": err,
-                         "pymatgen_D_ratio": pymatgen})
+                         "temperature_K": temperature, "x": x, "x_pymatgen": x + PYMATGEN_SHIFT,
+                         "kinisi_D_ratio": kinisi, "kinisi_D_ratio_err": err, "pymatgen_D_ratio": pymatgen})
     ax.axhline(1.0, **style.UNITY_LINE)
     ax.text(len(temps) - 0.58, 1.04, style.MODEL_LABELS["foundation"], ha="right", va="bottom",
             fontsize=style.SMALL, color=style.MODEL_COLORS["foundation"])
@@ -247,10 +259,9 @@ def _panel_b(ax, d: dict, md: dict[str, str]) -> Path:
     ax.set_yticks([0, 0.25, 0.5, 0.75, 1.0], ["0", "0.25", "0.50", "0.75", "1.00"])
     ax.set_xlabel("Temperature (K)")
     ax.set_ylabel("Li D, fine-tuned / MACE-MP-0")
-    handles = [Line2D([0], [0], marker="o", linestyle="-", color=style.DARK_GRAY, markersize=3.0, lw=0.6,
-                      label="kinisi, $\\pm$1 s.d."),
-               Line2D([0], [0], marker="_", linestyle="none", color=style.DARK_GRAY, markersize=6.0,
-                      markeredgewidth=1.1, label="pymatgen")]
+    handles = [_errorbar_handle("kinisi, $\\pm$1 s.d."),
+               Line2D([0], [0], marker="_", linestyle="none", color=style.DARK_GRAY, markersize=4.0,
+                      markeredgewidth=1.0, label="pymatgen")]
     ax.legend(handles=handles, loc="upper left", bbox_to_anchor=(0.0, 0.79), fontsize=style.SMALL,
               borderaxespad=0.4, labelspacing=0.35, handlelength=1.2)
     return style.save_source(pd.DataFrame(rows), NAME, "b")
@@ -278,7 +289,7 @@ def _panel_c(ax, d: dict, md: dict[str, str]) -> Path:
     ax.plot(mx, my, color=style.BLACK, lw=0.6, linestyle=(0, (2.5, 1.5)), zorder=3)
     ring = {"marker": "o", "markersize": RING, "markerfacecolor": "none", "markeredgecolor": style.BLACK,
             "markeredgewidth": 0.6, "linestyle": "none"}
-    ax.plot(mx, my, zorder=5, **ring)
+    common.allow_overlap(ax.plot(mx, my, zorder=5, **ring))  # the rings encircle the two MD markers on purpose
     ax.legend(handles=[Line2D([0], [0], color=style.BLACK, lw=0.6, label="MD comparison",
                               **{**ring, "linestyle": (0, (2.5, 1.5))})],
               loc="upper right", fontsize=style.SMALL, handlelength=2.4, borderaxespad=0.4)
@@ -313,17 +324,17 @@ def _panel_c(ax, d: dict, md: dict[str, str]) -> Path:
 def _panel_d(ax, d: dict, fits: pd.DataFrame, md: dict[str, str]) -> Path:
     dft = _pressure_offsets(d["cross_configs"], md)
     mdp = _md_offsets(d, fits)
-    low, high, left = -0.545, -0.325, -0.562  # x starts lower: room for the labels left of the Gamma markers
-    ax.plot([left, high], [left, high], **style.IDENTITY_LINE)
+    low, high = -0.545, -0.325
+    ax.plot([low, high], [low, high], **style.IDENTITY_LINE)
     rows = []
     for family in FINE_TUNED:
         color = style.MODEL_COLORS[family]
         x0, sem = dft.loc[family, "dft_offset_GPa"], dft.loc[family, "dft_offset_sem_GPa"]
-        ax.axvspan(x0 - sem, x0 + sem, color=color, alpha=0.12, linewidth=0, zorder=0)
+        ax.axvspan(x0 - sem, x0 + sem, color=color, alpha=D_BAND_ALPHA[family], linewidth=0, zorder=0)
         for run in mdp[mdp["family"] == family].itertuples():
             x = x0 + D_OFFSETS[run.temperature_K]
             ax.errorbar(x, run.md_offset_GPa, yerr=run.md_offset_sem_GPa, fmt="none", ecolor=color, elinewidth=0.6,
-                        capsize=1.0, zorder=2)
+                        capsize=0.0, zorder=2)
             ax.plot(x, run.md_offset_GPa, **common.model_style(md[family], size=MARKER, zorder=3))
             rows.append({"model": family, "md_model": md[family], "temperature_K": run.temperature_K, "x": x,
                          "dft_offset_GPa": x0, "dft_offset_sem_GPa": sem,
@@ -335,12 +346,10 @@ def _panel_d(ax, d: dict, fits: pd.DataFrame, md: dict[str, str]) -> Path:
                                                          "foundation_md_mean_P_GPa",
                                                          "foundation_md_block_sem_P_GPa", "n_blocks",
                                                          "foundation_n_blocks")}})
-    for row in rows:  # temperature labels: Gamma to the right of its markers, 2x2x2 to the left
-        right = row["model"] == "ftG" and row["temperature_K"] != 600
-        ax.annotate(f"{row['temperature_K']} K", (row["x"], row["md_offset_GPa"]),
-                    xytext=(4.0 if right else -4.0, 0), textcoords="offset points", ha="left" if right else "right",
-                    va="center", fontsize=style.SMALL, color=style.MODEL_COLORS[row["model"]])
-    ax.set_xlim(left, high)
+    order = ", ".join(str(t) for t in sorted(D_OFFSETS, key=D_OFFSETS.get))
+    ax.text(0.96, 0.04, f"Left to right:\n{order} K", transform=ax.transAxes, ha="right", va="bottom",
+            fontsize=style.SMALL, color=style.BLACK, linespacing=1.15)
+    ax.set_xlim(low, high)
     ax.set_ylim(low, high)
     ticks = [-0.50, -0.45, -0.40, -0.35]
     ax.set_xticks(ticks, [f"{t:.2f}" for t in ticks])
@@ -359,9 +368,9 @@ def _legend(ax, md: dict[str, str]) -> None:
     handles = [common.handle(common.model_style(md[m], size=MARKER + 0.2), labels[m]) for m in MODELS]
     handles += [common.handle(common.model_style("ftG", size=MARKER + 0.2, color=style.GRAY,
                                                  markeredgecolor=style.GRAY, markerfacecolor=style.GRAY),
-                              "filled, stage 2"),
+                              "filled: foundation or stage 2"),
                 common.handle(common.model_style("ftK", size=MARKER + 0.2, color=style.GRAY,
-                                                 markeredgecolor=style.GRAY), "open, stage 1")]
+                                                 markeredgecolor=style.GRAY), "open: stage 1")]
     ax.legend(handles=handles, loc="center left", ncol=len(handles), fontsize=style.FONT_SIZE, handlelength=1.0,
               handletextpad=0.4, columnspacing=1.8, borderaxespad=0.0, frameon=False)
 
@@ -496,29 +505,32 @@ def _caption() -> str:
         "training stage (c). "
         "**b**, kinisi D of each fine-tuned run divided by that of the foundation run at the same temperature "
         "(circles; error, the two kinisi relative standard deviations in quadrature; one run per model and "
-        f"temperature) and the pymatgen D ratio (bars). At 600, 800 and 1000 K: {ratio_text} (pymatgen: {pym_text}). "
+        f"temperature) and the pymatgen D ratio (short bars to the right of the circles). At 600, 800 and 1000 K: "
+        f"{ratio_text} (pymatgen: {pym_text}). "
         f"Fine-tuning lowers the kinisi D to {common.sig(min(kinisi_all), 2)}-{common.sig(max(kinisi_all), 2)} of the "
         "foundation's; the two fine-tuned runs differ by at most "
         f"{common.sig(z, 2)} combined standard deviations at any temperature. "
-        f"**c**, Force RMSE on the {n_h3} held-out H3 configurations ({n_components} force components, all atoms) "
-        "against the 2x2x2 labels for the four fine-tuned models, by training stage; colour, label set. "
+        f"**c**, Force RMSE on the {n_h3} H3 configurations ({n_components} force components, all atoms), which "
+        "neither fine-tune trained on (they are validation configurations of both and so were used to select the "
+        "epoch), against the 2x2x2 labels for the four fine-tuned models, by training stage; colour, label set; "
+        "fill, stage. "
         f"{rmse_text} meV/A. Ringed and joined by the dashed line, the two models that drove MD. Within a stage the "
         f"label set changes the error by {common.sig(within[0], 2)} (stage 1) and {common.sig(within[1], 2)} "
         f"(stage 2) meV/A (brackets); from stage 1 to stage 2 it changes by {common.sig(between[0])} (Gamma) and "
         f"{common.sig(between[1])} (2x2x2) meV/A (numbers on the lines). The MD comparison of a and b therefore "
-        "crosses a label-set difference of about 2 meV/A with a stage difference of about 13 meV/A. No error bars: "
-        f"with {n_h3} configurations no confidence intervals are given "
+        "crosses a label-set difference of about 2 meV/A with a stage difference of about 13 meV/A. Single values, "
+        f"no error bars: with {n_h3} configurations no confidence intervals are given "
         f"({registry.label('forces', 'b')} shows the single configurations). "
         "**d**, Pressure offset of each fine-tuned MD model from the foundation. Horizontal, the DFT single points: "
         "model pressure minus MACE-MP-0 pressure on the same configuration, averaged over all "
-        f"{n_configs} configurations (paired; shaded bands, mean +/- standard error of the paired differences, "
-        f"n = {n_configs}): {dft_text}. The DFT pressure cancels in the difference; the mean pressure errors against "
+        f"{n_configs} configurations (paired; shaded bands in the model colour, mean +/- standard error of the paired "
+        f"differences, n = {n_configs}): {dft_text}. The DFT pressure cancels in the difference; the mean pressure errors against "
         f"the 2x2x2 labels are {error_text} GPa. Vertical, MD: mean pressure of the fine-tuned run minus that of the "
-        "foundation run at the same temperature (labels), with the standard errors of the two run means from 0.5-ps "
+        "foundation run at the same temperature, with the standard errors of the two run means from 0.5-ps "
         f"block averages (n = {', '.join(str(n) for n in n_blocks)} blocks per run) added in quadrature (at most "
-        f"{common.sig(mdp['md_offset_sem_GPa'].max(), 1)} GPa, mostly hidden by the markers): {md_offset_text} GPa at "
-        "600, 800 and 1000 K. The three temperatures of one model share their horizontal value and are offset by "
-        f"+/- {max(D_OFFSETS.values()):g} GPa for clarity. Dashed line, identity. Absolute mean MD pressures at "
+        f"{common.sig(mdp['md_offset_sem_GPa'].max(), 2)} GPa, mostly hidden by the markers): {md_offset_text} GPa at "
+        "600, 800 and 1000 K. The three temperatures of one model share their horizontal value and are drawn left "
+        f"to right in that order, offset by +/- {max(D_OFFSETS.values()):g} GPa for clarity. Dashed line, identity. Absolute mean MD pressures at "
         f"600, 800 and 1000 K (GPa): {absolute_text}. Both fine-tunes lower the pressure, in the single points and "
         f"in MD, but {order_text}. No model was trained on stress, so pressures are diagnostic; the DFT "
         "configurations come from the 52-atom MACE-MP-0 MD at 600, 800 and 1000 K, in the cell of which the "

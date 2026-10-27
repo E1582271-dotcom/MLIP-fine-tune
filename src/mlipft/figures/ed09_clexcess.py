@@ -36,6 +36,9 @@ MEASURED_REF = "adeli2019"
 MSD_TEMPERATURE = 600
 LABELLED_TEMPERATURES = (1000, 600, C.T_REF_K)  # written above the data columns of a (800 K has no room)
 MARKER_SIZE = 3.6
+# Horizontal dodge of the run markers in a (1000/T units), alternating with Cl content: at 1000 K the Cl 1.25 and 1.50
+# runs have the same conductivity, at 800 K the Cl 1.50 and 1.75 runs nearly so.
+DODGE = 0.05
 NUMBER_WORDS = {"two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10}
 
 
@@ -97,8 +100,9 @@ def _series_markers(ax, x, y, yerr=None) -> None:
 
 def _panel_a(ax, series: pd.DataFrame, transport: pd.DataFrame) -> Path:
     rows = []
-    for fit in series.itertuples():
+    for index, fit in enumerate(series.itertuples()):
         color = _color(fit.cl_content)
+        dodge = DODGE if index % 2 == 0 else -DODGE
         runs = transport[transport["series"] == fit.series].sort_values("temperature_K")
         temps = runs["temperature_K"].to_numpy(float)
         sigma, err = runs["sigma_mS_cm"].to_numpy(), runs["kinisi_sigma_std_mS_cm"].to_numpy()
@@ -106,10 +110,12 @@ def _panel_a(ax, series: pd.DataFrame, transport: pd.DataFrame) -> Path:
         outside = np.linspace(C.T_REF_K, temps.min(), 41)
         for t, ls in ((inside, "-"), (outside, (0, (3, 2)))):
             ax.plot(1000.0 / t, sigma_model(t, fit.slope, fit.intercept), color=color, lw=0.8, ls=ls, zorder=2)
-        ax.errorbar(1000.0 / temps, sigma, yerr=err, fmt="none", ecolor=color, elinewidth=0.6, capsize=1.3, zorder=3)
-        ax.plot(1000.0 / temps, sigma, **_marker(fit.cl_content, size=3.4, zorder=4))
+        ax.errorbar(1000.0 / temps + dodge, sigma, yerr=err, fmt="none", ecolor=color, elinewidth=0.6, capsize=1.3,
+                    zorder=3)
+        ax.plot(1000.0 / temps + dodge, sigma, **_marker(fit.cl_content, size=3.4, zorder=4))
         rows.extend({"series": fit.series, "composition": fit.composition, "cl_content": fit.cl_content,
-                     "temperature_K": t, "x_inv_T_1000_per_K": 1000.0 / t, "sigma_mS_cm": s,
+                     "temperature_K": t, "x_inv_T_1000_per_K": 1000.0 / t, "x_plotted": 1000.0 / t + dodge,
+                     "sigma_mS_cm": s,
                      "kinisi_sigma_std_mS_cm": e, "fit_source": fit.source, "fit_slope_K": fit.slope,
                      "fit_intercept": fit.intercept} for t, s, e in zip(temps, sigma, err))
     ax.set_yscale("log")
@@ -193,7 +199,7 @@ def _panel_e(ax, series: pd.DataFrame, transport: pd.DataFrame, msd: pd.DataFram
         slopes.append((run_id, transport.loc[transport["run_id"] == run_id, "msd_loglog_slope_fit_window"].iloc[0]))
     ax.set_xscale("log")
     ax.set_yscale("log")
-    ax.set_xlim(0.05, 150.0)
+    ax.set_xlim(0.035, 220.0)  # margins beyond the lag range 0.05-150 ps
     ax.set_ylim(0.2, 500.0)
     style.log_ticks(ax, "x")
     style.log_ticks(ax, "y")
@@ -275,7 +281,8 @@ def _caption() -> str:
         "Colour, Cl content (light to dark blue, 1.00 to 1.75); inverted triangles, the runs of the series. "
         "**a**, Arrhenius plot, n = 3 runs per composition (one per temperature): per-run Nernst-Einstein "
         "conductivity from the pymatgen diffusion coefficient with the kinisi standard deviation as error bar, and "
-        "the weighted fit of ln(sigma T) against 1/T (solid, 600-1000 K; dashed, extrapolated to 300 K); the "
+        "the weighted fit of ln(sigma T) against 1/T (solid, 600-1000 K; dashed, extrapolated to 300 K); markers "
+        f"are offset by +/-{DODGE:g} in 1000/T, alternating with Cl content, so that equal values stay visible; the "
         "temperatures of the outer data columns and of the extrapolation target are written above the data. "
         f"Per-series fits with their residuals are in {registry.label('arrhenius')}. "
         f"**b**, sigma(300 K) from the fit over n = 3 temperatures; error bars, the 1-sigma interval of the fit: "

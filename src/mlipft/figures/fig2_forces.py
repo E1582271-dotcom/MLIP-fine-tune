@@ -11,6 +11,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from matplotlib import transforms
 from matplotlib.lines import Line2D
 from matplotlib.patches import Rectangle
 
@@ -30,6 +31,9 @@ PARITY_LIMIT = 5.0  # eV/A, both axes of the parity panels
 RMSE_LIMITS = (6.0, 700.0)  # meV/A, the shared log axis of b and c
 RMSE_TICKS = (10, 20, 50, 100, 200, 500)
 MD_GAP = 0.7  # extra space in b between the models that drove MD and the two that did not
+# Atom groups of the parity panels (a): Li against the framework; per-element errors are in c.
+ATOM_GROUPS = (("P, S, Cl", ("P", "S", "Cl"), style.DARK_GRAY), ("Li", ("Li",), style.ELEMENT_COLORS["Li"]))
+D_OFFSET = 0.30  # horizontal offset (configuration units) between the three models of d
 
 
 def _load():
@@ -83,20 +87,26 @@ def _panel_a(axes, key_ax, forces: pd.DataFrame, cross: pd.DataFrame, models: li
     species = np.repeat(forces["species"].to_numpy(), 3)
     held_out = np.repeat((forces["subset"] == "H3").to_numpy(), 3)
     limit = PARITY_LIMIT
+    group = {element: label for label, elements, _ in ATOM_GROUPS for element in elements}
     source = pd.DataFrame({"config_id": np.repeat(forces["config_id"].to_numpy(), 3),
                            "atom": np.repeat(forces["atom"].to_numpy(), 3),
-                           "species": species, "subset": np.repeat(forces["subset"].to_numpy(), 3),
+                           "species": species, "atom_group": [group[e] for e in species],
+                           "subset": np.repeat(forces["subset"].to_numpy(), 3),
                            "component": np.tile(list("xyz"), len(forces)), "dft_k222_eV_A": reference})
     for index, (ax, model) in enumerate(zip(axes, models)):
         predicted = _components(forces, model).ravel()
         source[f"{model}_eV_A"] = predicted
         ax.plot([-limit, limit], [-limit, limit], **style.IDENTITY_LINE)
-        ax.scatter(reference[~held_out], predicted[~held_out], s=1.0, facecolors=style.BAND, edgecolors="none",
-                   zorder=2)
-        for element in common.ELEMENTS:
-            keep = held_out & (species == element)
-            ax.scatter(reference[keep], predicted[keep], s=2.2, facecolors=style.ELEMENT_COLORS[element],
-                       edgecolors="none", zorder=3)
+        # One scatter artist per parity cloud (a cloud of force components overlaps by nature), drawn in a fixed
+        # order: T22 and H2 atoms behind, then the H3 framework atoms, then H3 Li on top. The cloud is rasterized
+        # at the export resolution in PDF and SVG (about 14 000 points per axes); text and lines stay vector.
+        layers = [(~held_out, style.BAND, 1.0)]
+        layers += [(held_out & np.isin(species, elements), color, 2.2) for _, elements, color in ATOM_GROUPS]
+        order = np.concatenate([np.flatnonzero(keep) for keep, _, _ in layers])
+        colors = np.concatenate([np.full(int(keep.sum()), color, dtype=object) for keep, color, _ in layers])
+        sizes = np.concatenate([np.full(int(keep.sum()), size) for keep, _, size in layers])
+        ax.scatter(reference[order], predicted[order], s=sizes, facecolors=list(colors), edgecolors="none", zorder=3,
+                   rasterized=True)
         row = _row(cross, model, "k222", "H3")
         slope = float(row["softening_slope"])
         source[f"{model}_slope_H3"] = slope
@@ -116,7 +126,7 @@ def _panel_a(axes, key_ax, forces: pd.DataFrame, cross: pd.DataFrame, models: li
         if index == 1:
             ax.set_xlabel("2x2x2 DFT force component (eV/Å)")
     elements = [Line2D([0], [0], marker="o", linestyle="none", markersize=3.0, markeredgecolor="none",
-                       markerfacecolor=style.ELEMENT_COLORS[e], label=e) for e in common.ELEMENTS]
+                       markerfacecolor=color, label=label) for label, _, color in reversed(ATOM_GROUPS)]
     first = key_ax.legend(handles=elements, loc="upper left", bbox_to_anchor=(0.0, 1.0), title="H3 atoms",
                           title_fontsize=style.SMALL, alignment="left", handletextpad=0.2, borderaxespad=0.0,
                           labelspacing=0.35, borderpad=0.0)
@@ -125,7 +135,7 @@ def _panel_a(axes, key_ax, forces: pd.DataFrame, cross: pd.DataFrame, models: li
                      markeredgewidth=0.3, markerfacecolor=style.BAND, label="T22, H2 atoms"),
               Line2D([0], [0], **{**style.IDENTITY_LINE, "zorder": 2}, label="identity"),
               Line2D([0], [0], color=style.BLACK, linewidth=0.6, label="least squares\nthrough origin")]
-    key_ax.legend(handles=others, loc="upper left", bbox_to_anchor=(0.0, 0.66), handletextpad=0.4,
+    key_ax.legend(handles=others, loc="upper left", bbox_to_anchor=(0.0, 0.76), handletextpad=0.4,
                   borderaxespad=0.0, labelspacing=0.5, borderpad=0.0, handlelength=1.4)
     style.save_source(source, NAME, "a")
 
@@ -167,7 +177,7 @@ def _panel_b(ax, legend_ax, cross: pd.DataFrame, cross_configs: pd.DataFrame, fl
     for group, text in ((md, "used for MD"), (other, "not used for MD")):
         ax.text((group[0] + group[-1]) / 2, 0.96, text, transform=ax.get_xaxis_transform(), ha="center", va="top",
                 fontsize=style.SMALL, color=style.GRAY)
-    ax.text(other[-1] + 0.3, np.sqrt(lo * h3_floor), f"H3 label floor {h3_floor:.1f}", ha="right", va="center",
+    ax.text(other[-1] + 0.3, np.sqrt(lo * h3_floor), f"H3 label floor {h3_floor:.1f} meV/Å", ha="right", va="center",
             fontsize=style.SMALL, color=style.GRAY)
     handles = [Line2D([0], [0], marker="o", linestyle="none", markersize=common.MARKER_SIZE,
                       markerfacecolor=style.BLACK, markeredgecolor=style.BLACK, label="vs 2x2x2 labels"),
@@ -187,8 +197,9 @@ def _panel_c(ax, legend_ax, cross: pd.DataFrame, floor: pd.DataFrame, primary: l
     rows = []
     for index, element in enumerate(common.ELEMENTS):
         value = _floor(floor, "H3", element)
-        ax.plot([index - 0.36, index + 0.36], [value, value], color=style.GRAY, linewidth=1.2,
-                solid_capstyle="butt", zorder=1)
+        lo = RMSE_LIMITS[0]
+        ax.add_patch(Rectangle((index - 0.4, lo), 0.8, value - lo, facecolor=style.BAND, edgecolor="none",
+                               zorder=0))
         rows.append({"element": element, "series": "label floor (Gamma vs 2x2x2)", "x": index,
                      "force_rmse_meV_A": value})
         for model, dx in zip(primary, offsets):
@@ -199,23 +210,26 @@ def _panel_c(ax, legend_ax, cross: pd.DataFrame, floor: pd.DataFrame, primary: l
     ax.set_xticks(range(len(common.ELEMENTS)), common.ELEMENTS)
     ax.set_xlim(-0.6, len(common.ELEMENTS) - 0.4)
     handles = [common.handle(common.model_style(m), common.SHORT_LABELS[m]) for m in primary]
-    handles.append(Line2D([0], [0], color=style.GRAY, linewidth=1.2, label="label floor"))
+    handles.append(Rectangle((0, 0), 1, 1, facecolor=style.BAND, edgecolor="none", label="H3 label floor"))
     legend_ax.legend(handles=handles, loc="lower left", bbox_to_anchor=(0.0, 0.0), ncol=len(handles),
                      handletextpad=0.5, columnspacing=1.0, borderaxespad=0.0, borderpad=0.0, handlelength=1.2)
     style.save_source(pd.DataFrame(rows), NAME, "c")
 
 
 def _panel_d(ax, legend_ax, configs: pd.DataFrame, cross: pd.DataFrame, cross_configs: pd.DataFrame,
-             floor: pd.DataFrame, primary: list[str]) -> None:
+             primary: list[str]) -> None:
     """Centred energy error per configuration against the 2x2x2 labels."""
     ids = list(configs["config_id"])
     x = common.config_positions(configs)
     position = dict(zip(ids, x))
-    centred_floor = _floor(floor, "All27", column="energy_rmse_centred_meV_atom")
-    ax.axhspan(-centred_floor, centred_floor, **style.BAND_FILL)
     ax.axhline(0, **style.UNITY_LINE)
-    common.subset_bands(ax, configs, x)
-    offsets = np.linspace(-0.22, 0.22, len(primary))
+    common.subset_bands(ax, configs, x, labels=False)
+    above = transforms.offset_copy(ax.get_xaxis_transform(), fig=ax.figure, y=2.0, units="points")
+    for position_x, subset in zip(x, configs["subset"]):
+        if subset != "T22":  # name the held-out configurations 0.7 mm above the frame
+            ax.text(position_x, 1.0, subset, transform=above, ha="center", va="bottom", fontsize=style.SMALL,
+                    color=style.BLACK if subset == "H3" else style.GRAY)
+    offsets = np.linspace(-D_OFFSET, D_OFFSET, len(primary))
     rows = []
     for model, dx in zip(primary, offsets):
         per = cross_configs[(cross_configs["model"] == model) & (cross_configs["labels"] == "k222")]
@@ -232,18 +246,17 @@ def _panel_d(ax, legend_ax, configs: pd.DataFrame, cross: pd.DataFrame, cross_co
     ax.set_ylim(min(values) - 4.0, max(values) + 4.0)  # room for the markers at both limits
     ax.set_yticks([-20, -10, 0, 10])
     ax.set_ylabel("Centred energy error\nvs 2x2x2 (meV/atom)")
+    # row header of the frame tick labels (config_axis: tick length 1.5 pt, pad 1.5 pt)
+    header = transforms.offset_copy(ax.transAxes, fig=ax.figure, x=-2.0, y=-3.0, units="points")
+    ax.text(0.0, 0.0, "Frame", transform=header, ha="right", va="top", fontsize=style.SMALL)
     handles = []
     for model in primary:
         value = _row(cross, model, "k222", "H3")["energy_rmse_centred_meV_atom"]
         handles.append(common.handle(common.model_style(model),
                                      f"{common.SHORT_LABELS[model]} (H3 RMSE {value:.2f} meV/atom)"))
-    handles.append(Rectangle((0, 0), 1, 1, facecolor=style.BAND, edgecolor="none",
-                             label=f"label floor, ±{centred_floor:.2f} meV/atom"))
     legend_ax.legend(handles=handles, loc="lower left", bbox_to_anchor=(0.0, 0.0), ncol=len(handles),
                      handletextpad=0.3, columnspacing=1.6, borderaxespad=0.0, borderpad=0.0)
-    source = pd.DataFrame(rows)
-    source["label_floor_centred_rmse_meV_atom"] = centred_floor
-    style.save_source(source, NAME, "d")
+    style.save_source(pd.DataFrame(rows), NAME, "d")
 
 
 # ----------------------------------------------------------------------------------------------- figure
@@ -275,7 +288,7 @@ def make() -> list[Path]:
     top_d = 128.0
     ax_d = L.axes(left, top_d, 167.0, 23.0, row="d", col="left")
     key_d = _key_axes(L, left, top_d - 8.0, 167.0, 3.0)
-    _panel_d(ax_d, key_d, configs, cross, cross_configs, floor, primary)
+    _panel_d(ax_d, key_d, configs, cross, cross_configs, primary)
 
     L.letter(ax_a[0], "a", 4.0, 6.0)
     L.letter(ax_b, "b", 4.0, 69.0)
@@ -284,11 +297,21 @@ def make() -> list[Path]:
     return L.save(*registry.target(KEY))
 
 
+def _where(configs: pd.DataFrame, subset: str) -> str:
+    """Plain-language location of a subset's configurations: 'frame 400 at 600 K and frames 200 and 500 at 800 K'."""
+    parts = []
+    for temperature, group in configs[configs["subset"] == subset].groupby("temperature_K", sort=True):
+        frames = [str(f) for f in sorted(group["frame"])]
+        listed = frames[0] if len(frames) == 1 else ", ".join(frames[:-1]) + " and " + frames[-1]
+        parts.append(f"frame{'s' if len(frames) > 1 else ''} {listed} at {temperature} K")
+    return " and ".join(parts)
+
+
 def _caption() -> str:
     configs, floor, cross, cross_configs, forces = _load()
     primary = common.primary_models(cross)
     counts = configs["subset"].value_counts()
-    h3_ids = ", ".join(configs.loc[configs["subset"] == "H3", "config_id"])
+    n_h3_word = {2: "two", 3: "three", 4: "four", 5: "five"}.get(int(counts["H3"]), str(counts["H3"]))
 
     def force(model, labels="k222", subset="H3", element="all"):
         return _row(cross, model, labels, subset, element)
@@ -308,39 +331,47 @@ def _caption() -> str:
     floors = ", ".join(f"{e} {_floor(floor, 'H3', e):.1f}" for e in common.ELEMENTS)
     e_text = "; ".join(f"{name(m)} {force(m)['energy_rmse_centred_meV_atom']:.2f}" for m in primary)
     e_all = ", ".join(f"{force(m, subset='All27')['energy_rmse_centred_meV_atom']:.2f}" for m in primary)
+    centred_floor = _floor(floor, "All27", column="energy_rmse_centred_meV_atom")
     fk = cross_configs[(cross_configs["model"] == "foundation") & (cross_configs["labels"] == "k222")].copy()
     fk["temperature_K"] = fk["config_id"].map(lambda c: common.config_key(c)[0])
     fmeans = fk.groupby("temperature_K")["energy_centred_meV_atom"].mean()
     trend = ", ".join(f"{fmeans[t]:+.1f} at {t} K" for t in sorted(fmeans.index))
+    temperatures = sorted(configs["temperature_K"].unique())
+    runs = ", ".join(str(t) for t in temperatures[:-1]) + f" or {temperatures[-1]} K"
     return (
         registry.heading(KEY)
-        + f"The test set H3 consists of the {counts['H3']} configurations held out by both fine-tunes ({h3_ids}; "
-        f"the subsets are mapped in {registry.label('labels', 'a')}); the reference is the 2x2x2 k-point label "
-        f"set unless stated. "
+        + f"H3 denotes the {n_h3_word} configurations that neither fine-tune was trained on "
+        f"({_where(configs, 'H3')}); they are the validation configurations of both fine-tunes and so were used to "
+        f"select the epoch. The subsets are mapped in {registry.label('labels', 'a')}. The reference is the 2x2x2 "
+        f"k-point label set unless stated. "
         f"**a**, Force components predicted by the three models that drove the MD runs (identified by force "
-        f"fingerprints, {registry.label('models', 'a')}) against the 2x2x2 labels. H3 atoms are coloured by "
-        f"element (n = {n_h3} force components per model); the T22 and H2 configurations are drawn in light grey "
-        f"behind them (T22 is training data of both fine-tunes, H2 of the 2x2x2 fine-tune). Dashed line, identity; "
-        f"solid line, least-squares fit through the origin on H3, whose slope measures force softening. RMSE and "
-        f"slope on H3: {a_text}. "
+        f"fingerprints, {registry.label('models', 'a')}) against the 2x2x2 labels; each point is one force "
+        f"component (single values, no error bars). H3 atoms are drawn in navy for Li and in dark grey for the "
+        f"framework atoms P, S and Cl (n = {n_h3} force components per model; per-element errors in c); the T22 and "
+        f"H2 configurations are drawn in light grey behind them (T22 is training data of both fine-tunes, H2 of the "
+        f"2x2x2 fine-tune). Dashed line, identity; solid line, least-squares fit through the origin on H3, whose "
+        f"slope measures force softening. RMSE and slope on H3: {a_text}. "
         f"**b**, Force RMSE on H3 (meV/A) of all five models: large markers against the 2x2x2 labels and grey bars "
         f"against the Gamma-point labels, each over all n = {n_h3} H3 force components; small dots, the n = "
         f"{counts['H3']} H3 configurations individually against the 2x2x2 labels ({n_config} components each). "
+        f"Single values, no error bars; with {n_h3_word} configurations no confidence intervals are given. "
         f"{b_text}. The three models on the left drove the MD runs; the two on the right were not used for MD. "
         f"Grey band, the H3 label floor ({_floor(floor, 'H3'):.1f} meV/A): the RMSE of the Gamma minus 2x2x2 force "
-        f"components over H3, the force error that separates the two label sets themselves. With "
-        f"{counts['H3']} held-out configurations no confidence intervals are given. "
+        f"components over H3, the force error that separates the two label sets themselves. "
         f"**c**, Force RMSE on H3 against the 2x2x2 labels per element for the three MD models (n = {n_element} "
-        f"force components per model), with the per-element H3 label floor (grey bars; RMSE of the Gamma minus "
-        f"2x2x2 force components of that element over H3: {floors} meV/A). P carries the largest error "
-        f"({p_text} meV/A). Panels b and c share a logarithmic axis. "
+        f"force components per model); single values, no error bars. Grey bands, the per-element H3 label floor "
+        f"(RMSE of the Gamma minus 2x2x2 force components of that element over H3: {floors} meV/A). P carries the "
+        f"largest error ({p_text} meV/A). Panels b and c share a logarithmic axis. "
         f"**d**, Energy error per configuration (n = {len(configs)}) against the 2x2x2 labels after removing each "
         f"model's constant offset, the mean error over the {counts['T22']} T22 configurations (all configurations "
-        f"have the composition Li24P4S20Cl4), ordered by source temperature and frame. H3 (dark band) and H2 "
-        f"(light band) configurations are in full colour, T22 faint. RMSE on H3: {e_text} meV/atom (All27: {e_all} "
-        f"in the same order). The foundation model's centred error drifts with source temperature (mean {trend} "
-        f"meV/atom). Grey band, the centred energy label floor: the RMSE over all {len(configs)} configurations of the "
-        f"Gamma minus 2x2x2 energies, centred in the same way (offset over T22). "
+        f"have the composition Li24P4S20Cl4); single values, no error bars. Configurations are ordered by the "
+        f"temperature ({runs}) and frame of the 52-atom MACE-MP-0 run they were taken from; the three models are "
+        f"offset horizontally within each configuration. H3 configurations (dark bands) are drawn as opaque "
+        f"3.4-pt markers, H2 configurations (light bands) as 3.0-pt markers at 70% opacity and T22 configurations "
+        f"as 2.6-pt markers at 40% opacity. RMSE on H3: {e_text} meV/atom (All27: {e_all} in the same order). The "
+        f"foundation model's centred error drifts with source temperature (mean {trend} meV/atom). The centred "
+        f"energy label floor, +/-{centred_floor:.2f} meV/atom (the RMSE over all {len(configs)} configurations of "
+        f"the Gamma minus 2x2x2 energies, centred in the same way), is narrower than a marker and is not drawn. "
         f"{common.naming_sentence(configs)} Fine-tuned models are compared with DFT and with the foundation model "
         f"only. "
         + common.sources([CONFIGS, FLOOR, CROSS, CROSS_CONFIGS, FORCES])

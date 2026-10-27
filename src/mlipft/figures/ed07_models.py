@@ -23,7 +23,7 @@ from . import common, registry, style
 KEY = "models"
 NAME = registry.number(KEY)
 PANELS = "abcde"
-WIDTH, HEIGHT = 183.0, 127.0
+WIDTH, HEIGHT = 183.0, 142.0
 FINGERPRINTS = paths.MODELS / "fingerprints.csv"
 CROSS = paths.RESULTS / "cross_evaluation.csv"
 CROSS_CONFIGS = paths.RESULTS / "cross_evaluation_configs.csv"
@@ -38,8 +38,11 @@ SERIES_TEXT = {"mace_416_200": "MACE-MP-0\nrun", "ftG_416_200": "Gamma\nfine-tun
 SUBSET_COLUMNS = ("H3", "H2", "T22", "own_valid", "All27")
 SUBSET_NAMES = {"H3": "H3", "H2": "H2", "T22": "T22", "own_valid": "Own\nvalidation", "All27": "All27"}
 CATEGORIES = ("all", *common.ELEMENTS)
-SIZE = 3.0  # marker diameter (pt) of the model markers
+SIZE = 2.5  # marker diameter (pt) of the model markers
+EDGE = 0.5  # marker edge width (pt)
+SPREAD = 0.38  # the five models sit within +/-SPREAD of a row (a) or a category (c)
 HEAT = LinearSegmentedColormap.from_list("ed07_rmse", [style.WHITE, style.BLACK])
+H3_OFFSETS = np.array([0.1, 0.27, 0.44])  # d: the three H3 configurations, in id order
 DECOMPOSITION_SUBSETS = {"H3": {"dx": -0.15, "size": 3.4}, "All27": {"dx": 0.15, "size": 2.2}}
 
 
@@ -63,8 +66,7 @@ def _trained_on(model: str, subset: str, configs: pd.DataFrame) -> bool:
 
 
 def _model_ticks(ax) -> None:
-    ticks = [common.SHORT_LABELS[m].replace(", ", ",\n").replace("MACE-MP-0", "MACE-\nMP-0")
-             for m in common.MODEL_ORDER]
+    ticks = [common.SHORT_LABELS[m].replace(", ", ",\n") for m in common.MODEL_ORDER]
     ax.set_xticks(range(len(common.MODEL_ORDER)), ticks, fontsize=style.SMALL)
     ax.set_xlim(-0.6, len(common.MODEL_ORDER) - 0.4)
 
@@ -79,14 +81,14 @@ def _grey_handle(size: float, label: str, alpha: float = 1.0) -> Line2D:
 
 def _panel_a(ax, series_ax, assigned_ax, fingerprints: pd.DataFrame) -> None:
     rows, ticks, labels, y = [], [], [], 0.0
-    offsets = dict(zip(common.MODEL_ORDER, np.linspace(-0.3, 0.3, len(common.MODEL_ORDER))))
+    offsets = dict(zip(common.MODEL_ORDER, np.linspace(-SPREAD, SPREAD, len(common.MODEL_ORDER))))
     for series in SERIES_ORDER:
         block = fingerprints[fingerprints["series"] == series].sort_values("temperature_K")
         start = y
         for run in block.itertuples():
             for model in common.MODEL_ORDER:
                 value = getattr(run, f"rms_{model}_meV_A")
-                ax.plot(value, y + offsets[model], **common.model_style(model, size=SIZE, edge=0.6, zorder=3))
+                ax.plot(value, y + offsets[model], **common.model_style(model, size=SIZE, edge=EDGE, zorder=3))
                 rows.append({"series": series, "temperature_K": run.temperature_K, "candidate": model,
                              "rms_residual_meV_A": value, "assigned_model": run.assigned_model,
                              "y": y + offsets[model]})
@@ -148,7 +150,7 @@ def _panel_b(ax, label_ax, cross: pd.DataFrame, configs: pd.DataFrame, primary: 
         label_ax.text(0.1, y - 1.5, common.SHORT_LABELS[model] + ("" if primary_model else "\n(no MD run)"),
                       ha="left", va="center", fontsize=style.SMALL, linespacing=1.1,
                       color=style.BLACK if primary_model else style.GRAY)
-        label_ax.plot(0.04, y - 1.5, **common.model_style(model, size=SIZE, edge=0.6))
+        label_ax.plot(0.04, y - 1.5, **common.model_style(model, size=3.0, edge=0.6))
     for axis in (ax, label_ax):
         axis.set_ylim(y - 0.5, -0.5)
     ax.set_xlim(-0.5, len(SUBSET_COLUMNS) - 0.5)
@@ -165,7 +167,7 @@ def _panel_b(ax, label_ax, cross: pd.DataFrame, configs: pd.DataFrame, primary: 
 
 
 def _panel_c(ax, cross: pd.DataFrame) -> None:
-    offsets = dict(zip(common.MODEL_ORDER, np.linspace(-0.3, 0.3, len(common.MODEL_ORDER))))
+    offsets = dict(zip(common.MODEL_ORDER, np.linspace(-SPREAD, SPREAD, len(common.MODEL_ORDER))))
     rows = []
     ax.axhline(1.0, **style.UNITY_LINE)
     for index, element in enumerate(CATEGORIES):
@@ -173,7 +175,7 @@ def _panel_c(ax, cross: pd.DataFrame) -> None:
             row = cross[(cross["model"] == model) & (cross["labels"] == "k222") & (cross["subset"] == "H3")
                         & (cross["element"] == element)].iloc[0]
             ax.plot(index + offsets[model], row["softening_slope"],
-                    **common.model_style(model, size=SIZE, edge=0.6, zorder=3))
+                    **common.model_style(model, size=SIZE, edge=EDGE, zorder=3))
             rows.append({"element": element, "model": model, "x": index + offsets[model],
                          "softening_slope": row["softening_slope"], "n_components": int(row["n_components"])})
     ax.set_xticks(range(len(CATEGORIES)), ["All", *common.ELEMENTS])
@@ -192,12 +194,15 @@ def _panel_d(ax, cross: pd.DataFrame, cross_configs: pd.DataFrame, floor: pd.Dat
     for index, model in enumerate(common.MODEL_ORDER):
         per = cross_configs[(cross_configs["model"] == model) & (cross_configs["labels"] == "k222")].sort_values(
             "config_id")
-        offsets = common.jitter(len(per), 0.45, seed=20 + index)
         held = (per["subset"] == "H3").to_numpy()
         values = per["pressure_error_kbar"].to_numpy()
+        # T22 and H2 as a jittered strip on the left of the slot, the three H3 side by side on the right
+        offsets = np.empty(len(per))
+        offsets[~held] = -0.22 + common.jitter(int((~held).sum()), 0.34, seed=20 + index)
+        offsets[held] = H3_OFFSETS[:int(held.sum())]
         ax.scatter(index + offsets[~held], values[~held],
                    **common.model_scatter(model, size=1.7, edge=0.4, alpha=0.4, zorder=2))
-        ax.scatter(index + offsets[held], values[held], **common.model_scatter(model, size=3.3, edge=0.9, zorder=3))
+        ax.scatter(index + offsets[held], values[held], **common.model_scatter(model, size=2.8, edge=0.8, zorder=3))
         value = cross[(cross["model"] == model) & (cross["labels"] == "k222") & (cross["subset"] == "All27")
                       & (cross["element"] == "all")]["pressure_rmse_kbar"].iloc[0]
         ax.text(index, 3.0, f"{value:.2f}", ha="center", va="bottom", fontsize=style.SMALL)
@@ -206,13 +211,13 @@ def _panel_d(ax, cross: pd.DataFrame, cross_configs: pd.DataFrame, floor: pd.Dat
                     for c, s, o, v in zip(per["config_id"], per["subset"], offsets, values))
     ax.text(-0.45, 4.35, "All27 RMSE (kbar)", ha="left", va="bottom", fontsize=style.SMALL)
     _model_ticks(ax)
-    ax.set_ylim(-9.8, 5.9)
+    ax.set_ylim(-10.3, 5.9)
     ax.set_yticks([-8, -6, -4, -2, 0, 2])
     ax.set_ylabel("Pressure error vs 2x2x2 (kbar)")
-    ax.legend(handles=[_grey_handle(3.3, "H3"), _grey_handle(1.7, "T22, H2", alpha=0.4),
+    ax.legend(handles=[_grey_handle(2.8, "H3"), _grey_handle(1.7, "T22, H2", alpha=0.4),
                        Rectangle((0, 0), 1, 1, facecolor=style.BAND, edgecolor="none",
                                  label=f"label floor, +/-{pressure_floor:.2f}")],
-              loc="lower left", fontsize=style.SMALL, handletextpad=0.3, borderaxespad=0.3, ncol=3,
+              loc="lower left", fontsize=style.SMALL, handletextpad=0.3, borderaxespad=0.7, ncol=3,
               columnspacing=0.7, handlelength=1.0)
     style.save_source(pd.DataFrame(rows), NAME, "d")
 
@@ -225,21 +230,21 @@ def _panel_e(ax, decomposition: pd.DataFrame) -> None:
         for subset, look in DECOMPOSITION_SUBSETS.items():
             row = decomposition[(decomposition["model"] == model) & (decomposition["subset"] == subset)].iloc[0]
             ax.plot(index + look["dx"], row["cross_fraction"],
-                    **common.model_style(model, size=look["size"], edge=0.6, zorder=3))
+                    **common.model_style(model, size=look["size"], edge=EDGE, zorder=3))
             rows.append({"model": model, "subset": subset, "x": index + look["dx"],
                          "rmse_vs_gamma_meV_A": row["rmse_vs_gamma_meV_A"],
                          "rmse_vs_k222_meV_A": row["rmse_vs_k222_meV_A"], "floor_meV_A": row["floor_meV_A"],
                          "cross_term_meV2_A2": row["cross_term_meV2_A2"], "cross_fraction": row["cross_fraction"]})
-    ax.text(-0.45, 0.15, "tracks the Gamma labels", ha="left", va="bottom", fontsize=style.SMALL,
+    ax.text(-0.45, 0.4, "tracks the Gamma labels", ha="left", va="bottom", fontsize=style.SMALL,
             color=style.CONTEXT_TEXT)
-    ax.text(-0.45, -2.15, "tracks the 2x2x2 labels", ha="left", va="top", fontsize=style.SMALL,
+    ax.text(-0.45, -2.4, "tracks the 2x2x2 labels", ha="left", va="top", fontsize=style.SMALL,
             color=style.CONTEXT_TEXT)
     _model_ticks(ax)
-    ax.set_ylim(-7.2, 1.1)
+    ax.set_ylim(-7.2, 1.4)
     ax.set_yticks([-6, -4, -2, 0])
     ax.set_ylabel("Cross term / floor²")
     ax.legend(handles=[_grey_handle(3.4, "H3"), _grey_handle(2.2, "All27")], loc="lower right",
-              fontsize=style.SMALL, handletextpad=0.3, borderaxespad=0.3, handlelength=1.0)
+              fontsize=style.SMALL, handletextpad=0.3, borderaxespad=0.7, handlelength=1.0)
     style.save_source(pd.DataFrame(rows), NAME, "e")
 
 
@@ -256,7 +261,7 @@ def make() -> list[Path]:
     _legend(fig, L, 2.5)
 
     # row 1: a (fingerprints, the hero), b (cross-evaluation table)
-    top1, height1 = 15.0, 45.0
+    top1, height1 = 15.0, 60.0
     ax_a_series = L.axes(2.0, top1, 14.0, height1, frame="none")
     ax_a = L.axes(25.0, top1, 47.0, height1, row="1", col="left")
     ax_a_assigned = L.axes(72.5, top1, 17.0, height1, frame="none")
@@ -266,18 +271,18 @@ def make() -> list[Path]:
     _panel_b(ax_b, ax_b_labels, cross, configs, primary)
 
     # row 2: c (softening), d (pressure), e (floor decomposition)
-    top2, height2 = 80.0, 36.0
-    ax_c = L.axes(25.0, top2, 41.0, height2, row="2", col="left")
+    top2, height2 = 95.0, 36.0
+    ax_c = L.axes(25.0, top2, 35.0, height2, row="2", col="left")
     _panel_c(ax_c, cross)
-    ax_d = L.axes(80.0, top2, 43.0, height2, row="2")
+    ax_d = L.axes(72.0, top2, 49.0, height2, row="2")
     _panel_d(ax_d, cross, cross_configs, floor)
-    ax_e = L.axes(137.0, top2, 44.0, height2, row="2")
+    ax_e = L.axes(134.0, top2, 47.0, height2, row="2")
     _panel_e(ax_e, decomposition)
 
     L.letter(ax_a, "a", 3.0, 11.0)
     L.letter(ax_b, "b", 97.0, 11.0)
     L.letter(ax_c, "c", 3.0, top2 - 4.0)
-    L.letter(ax_d, "d", 69.0, top2 - 4.0)
+    L.letter(ax_d, "d", 64.0, top2 - 4.0)
     L.letter(ax_e, "e", 126.0, top2 - 4.0)
     return L.save(*registry.target(KEY))
 
@@ -312,7 +317,8 @@ def _caption() -> str:
                           f"({dec.loc[(m, 'All27'), 'cross_fraction']:.2f})" for m in models)
     return (
         registry.heading(KEY)
-        + "Markers: colour by model, filled for MACE-MP-0 and stage 2, open for stage 1 (legend at top). "
+        + "Markers (legend at top): MACE-MP-0 red; the fine-tuned models navy (Gamma labels) or blue (2x2x2 "
+        "labels), filled for stage 2 and open for stage 1. "
         + common.naming_sentence(configs) + " "
         f"**a**, Force fingerprints of the 416-atom, 200-ps MD runs at {temperatures} K (n = {len(fingerprints)} "
         f"runs): RMS difference between the forces stored in four frames of each run (first, one third, two "
@@ -322,21 +328,23 @@ def _caption() -> str:
         f"{best.min():.4f}-{best.max():.4f} meV/A, the next best {others.min():.1f}-{others.max():.1f} meV/A. "
         f"Assignments: {run_text}. These are the models of the MD runs in {registry.label('diffusion')} and "
         f"{registry.label('finetune')} ({'; '.join(common.SHORT_LABELS[md[f]] for f in common.RUN_FAMILIES)}); "
-        "the other two fine-tuned models have no MD run. "
+        "the other two fine-tuned models have no MD run. Single values, no error bars. "
         f"**b**, Force RMSE (meV/A, all force components of the n configurations under each column) of all five "
         f"models against both label sets on each subset. Own validation is defined for the fine-tunes only: "
         f"V5 = H3 + H2 for the Gamma fine-tune, H3 for the 2x2x2 fine-tune. Shading is logarithmic in the RMSE. "
         f"Italic values include configurations the model was trained on; the primary estimand is the H3 column "
-        f"against 2x2x2 ({h3}), as in {registry.label('forces')}. "
+        f"against 2x2x2 ({h3}), as in {registry.label('forces')}. Single values, no error bars. "
         f"**c**, Softening slope (least-squares slope through the origin of model against 2x2x2 force components) "
         f"on H3, overall and per element (n = {int(slopes.loc[('foundation', 'all'), 'n_components'])} "
         f"components; {components}). MACE-MP-0: {found}; fine-tuned models {tuned.min():.2f}-{tuned.max():.2f}. "
-        f"Line, slope 1. "
+        f"Line, slope 1. Single values, no error bars. "
         f"**d**, Pressure error against the 2x2x2 labels for each configuration (n = {len(n_pressure)} per model; "
-        f"H3 large and opaque), a diagnostic only: no model was trained on stress. Numbers above, All27 RMSE "
+        f"T22 and H2 small and pale on the left of each model, the three H3 configurations large on the right), a "
+        f"diagnostic only: no model was trained on stress. Numbers above, All27 RMSE "
         f"(kbar): {pressure}. The fine-tuned models underestimate the pressure by "
         f"{-tuned_mean.max():.1f}-{-tuned_mean.min():.1f} kbar on average (MACE-MP-0: {pk['foundation']:+.2f} "
-        f"kbar), well outside the label floor of {pfloor:.2f} kbar (grey band). "
+        f"kbar), well outside the label floor of +/-{pfloor:.2f} kbar (grey band). Single values per "
+        f"configuration, no error bars. "
         f"**e**, Decomposition of the force error against the two label sets, RMSE(m vs 2x2x2)^2 = "
         f"RMSE(m vs Gamma)^2 + floor^2 + cross term, over all force components of H3 (large markers; floor "
         f"{floors['H3']:.1f} meV/A) and All27 (small markers; floor {floors['All27']:.1f} meV/A). The cross term "

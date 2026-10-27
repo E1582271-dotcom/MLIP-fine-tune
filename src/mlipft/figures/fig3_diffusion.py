@@ -35,15 +35,15 @@ AIMD_MSD = paths.REFERENCES / "aimd_deng2017" / "msd.csv.gz"
 FAMILIES = ("foundation", "mattersim", "ftG", "ftK")  # run families in drawing order
 CAPTION_NAMES = {"foundation": "MACE-MP-0", "mattersim": "MatterSim", "ftG": "Gamma fine-tune",
                  "ftK": "2x2x2 fine-tune"}
-# Panel a: horizontal offsets (1000/T units) only for markers that would otherwise overlap; every other point,
-# AIMD and MACE-MP-0 included, sits at its true 1000/T.
-A_OFFSET = {600: {"ftG": -0.012, "ftK": 0.012}, 800: {"ftG": -0.007, "mattersim": 0.007},
-            1000: {"mattersim": -0.013, "ftK": 0.013}}
-A_MARKER = 3.2  # marker diameter (pt) in panel a
+# Panel a: horizontal offsets (1000/T units) of the two fine-tunes, whose markers would otherwise overlap those of
+# MatterSim and the AIMD error bars; MACE-MP-0, MatterSim and AIMD sit at their true 1000/T.
+A_OFFSET = {"ftG": -0.02, "ftK": 0.02}
+A_MARKER = 3.4  # marker diameter (pt) in panel a
 A_ERROR = {"elinewidth": 0.6, "capsize": 1.0, "capthick": 0.6}
 B_OFFSET = {"foundation": -0.3, "mattersim": -0.1, "ftG": 0.1, "ftK": 0.3}  # category units, panel b
 PYMATGEN_SHIFT = 0.07  # pymatgen bar to the right of the kinisi circle, category units, panel b
-C_ORDER = ("foundation", "ftK", "ftG", "mattersim")  # MSD curves: the light MatterSim line drawn last
+C_ORDER = ("foundation", "mattersim", "ftK", "ftG")  # MSD curves, drawn in this order: fine-tunes on top
+D_OFFSET = {"ftG": -0.003, "ftK": 0.003}  # panel d: vertical offset of the two fine-tunes (equal slopes, 0.992)
 MSD_TEMPERATURES = (600, 1000)
 RATIO_TEMPERATURE = 1000  # D ratio of panel d
 SOFTENING_LABELS, SOFTENING_SUBSET = "k222", "H3"
@@ -108,7 +108,7 @@ def _panel_a(ax, d: dict, production: dict[str, str], ids: dict[str, str]) -> Pa
     for family in FAMILIES:
         runs = transport[transport["series"] == production[family]].sort_values("temperature_K")
         temps = runs["temperature_K"].to_numpy(float)
-        x = 1000.0 / temps + np.array([A_OFFSET.get(int(t), {}).get(family, 0.0) for t in temps])
+        x = 1000.0 / temps + A_OFFSET.get(family, 0.0)
         y, err = runs["kinisi_D_cm2_s"].to_numpy(), runs["kinisi_D_std_cm2_s"].to_numpy()
         color = style.MODEL_COLORS[family]
         ax.plot(x, y, color=color, lw=LINE_WIDTH, zorder=2)
@@ -202,6 +202,8 @@ def _panel_c(axes, d: dict, production: dict[str, str]) -> Path:
     length = float(C.SERIES_BY_ID[production["foundation"]]["production_ps"])
     aimd_length = float(d["aimd"]["length_ps"].iloc[0])
     start, aimd_start = _window_start(length), _window_start(aimd_length)
+    slopes = d["transport"].set_index("run_id")["msd_loglog_slope_fit_window"]
+    aimd_slopes = d["aimd"].set_index("temperature_K")["msd_loglog_slope_fit_window"]
     frames = []
     for index, (ax, temperature) in enumerate(zip(axes, MSD_TEMPERATURES)):
         ax.axvspan(start, 1000.0, **style.BAND_FILL)
@@ -226,19 +228,26 @@ def _panel_c(axes, d: dict, production: dict[str, str]) -> Path:
         _log_ticks(ax, [0.1, 1, 10, 100], ["0.1", "1", "10", "100"], "x")
         _log_ticks(ax, [0.1, 1, 10, 100, 1000], ["0.1", "1", "10", "100", "1000"])
         ax.set_xlabel("Lag time (ps)")
-        ax.text(0.95, 0.05, f"{temperature} K", transform=ax.transAxes, ha="right", va="bottom",
-                fontsize=style.FONT_SIZE, fontweight="bold")
+        ax.set_title(f"{temperature} K", fontsize=style.FONT_SIZE, fontweight="bold", pad=2.0)
+        slope_handles = [Line2D([0], [0], color=style.MODEL_COLORS[f], lw=1.2,
+                                label=f"{slopes[C.run_id(production[f], temperature)]:.2f}") for f in FAMILIES]
+        slope_handles.append(Line2D([0], [0], color=style.AIMD_COLOR, lw=1.2,
+                                    label=f"{aimd_slopes[temperature]:.2f}"))
+        slope_key = dict(fontsize=style.SMALL, title_fontsize=style.SMALL, handlelength=1.2, handletextpad=0.4,
+                         labelspacing=0.25, alignment="left", title="Slope in fit window")
         if index == 0:
             ax.set_ylabel("Li MSD (Å$^2$)")
             handles = [Patch(facecolor=style.BAND, edgecolor="none", label="MLIP fit window"),
                        Line2D([0], [0], color=style.AIMD_COLOR, lw=1.4, solid_capstyle="butt",
                               label="AIMD fit window")]
-            ax.legend(handles=handles, loc="upper left", fontsize=style.SMALL, handlelength=1.2,
-                      handletextpad=0.4, labelspacing=0.35, borderaxespad=0.4)
+            windows = ax.legend(handles=handles, loc="upper left", fontsize=style.SMALL, handlelength=1.2,
+                                handletextpad=0.4, labelspacing=0.35, borderaxespad=0.4)
+            ax.add_artist(windows)
+            ax.legend(handles=slope_handles, loc="upper left", bbox_to_anchor=(0.0, 0.83), borderaxespad=0.4,
+                      **slope_key)
         else:
             ax.tick_params(axis="y", labelleft=False)
-    slopes = d["transport"].set_index("run_id")["msd_loglog_slope_fit_window"]
-    aimd_slopes = d["aimd"].set_index("temperature_K")["msd_loglog_slope_fit_window"]
+            ax.legend(handles=slope_handles, loc="upper left", borderaxespad=0.4, **slope_key)
     source = pd.concat(frames, ignore_index=True)
     source["msd_loglog_slope_fit_window"] = [aimd_slopes[t] if m == "AIMD" else slopes[r]
                                              for m, r, t in zip(source["model"], source["run_id"],
@@ -257,12 +266,13 @@ def _panel_d(ax, d: dict, production: dict[str, str], md: dict[str, str]) -> Pat
         row = _ratio(d["comparison"], production[family], RATIO_TEMPERATURE)
         ratio, rel = row["kinisi_D_ratio_to_aimd"], row["kinisi_D_ratio_rel_err"]
         color = style.MODEL_COLORS[model_id]
-        ax.errorbar(ratio, soft["softening_slope"], xerr=ratio * rel, fmt="none", ecolor=color, zorder=2, **ERROR)
-        ax.plot(ratio, soft["softening_slope"], **common.model_style(model_id, size=3.4), zorder=3)
+        y = soft["softening_slope"] + D_OFFSET.get(family, 0.0)
+        ax.errorbar(ratio, y, xerr=ratio * rel, fmt="none", ecolor=color, zorder=2, **ERROR)
+        ax.plot(ratio, y, **common.model_style(model_id, size=3.4), zorder=3)
         rows.append({"model": family, "md_model": model_id, "series": production[family],
                      "labels": SOFTENING_LABELS, "subset": SOFTENING_SUBSET, "element": "Li",
                      "n_configs": int(soft["n_configs"]), "n_components": int(soft["n_components"]),
-                     "softening_slope": soft["softening_slope"], "temperature_K": RATIO_TEMPERATURE,
+                     "softening_slope": soft["softening_slope"], "y_plot": y, "temperature_K": RATIO_TEMPERATURE,
                      "kinisi_D_ratio_to_aimd": ratio, "kinisi_D_ratio_rel_err": rel,
                      "kinisi_D_ratio_err_abs": ratio * rel})
     ax.text(1.04, 0.04, "AIMD", transform=ax.get_xaxis_transform(), ha="left", va="bottom",
@@ -310,7 +320,7 @@ def make() -> list[Path]:
     sources = [_panel_a(ax_a, d, production, ids), _panel_b(ax_b, d, production, ids)]
 
     top2, h2 = 93.0, 42.0
-    ax_c = [L.axes(14.0, top2, 45.0, h2, row="2", col="left"), L.axes(62.0, top2, 45.0, h2, row="2")]
+    ax_c = [L.axes(14.0, top2, 46.5, h2, row="2", col="left"), L.axes(63.5, top2, 46.5, h2, row="2")]
     ax_d = L.axes(126.0, top2, 55.0, h2, row="2", col="right")
     sources += [_panel_c(ax_c, d, production), _panel_d(ax_d, d, production, md)]
 
@@ -359,7 +369,7 @@ def _caption() -> str:
     stage = {"s1": "stage-1", "s2": "stage-2"}
     return (
         registry.heading(KEY)
-        + "The reference is AIMD of the same ordered Li6PS5Cl cell (Cl on 4a, S on 4c) by Deng et al., Chem. "
+        + "The reference is AIMD of the same ordered Li6PS5Cl cell (Cl on 4a, free S on 4c) by Deng et al., Chem. "
         "Mater. 29, 281 (2017), re-analysed with the estimators and settings of the MLIP runs "
         f"({registry.label('aimd')}). MLIP runs: {int(first['n_atoms'])} atoms, {length} ps per temperature, "
         f"a = {a_mlip:.2f} A; AIMD: {n_aimd} atoms, {aimd_length} ps, a = {a_aimd:.2f} A. One trajectory per model "
@@ -368,9 +378,9 @@ def _caption() -> str:
         f"fine-tune ran MD with its {stage[md['ftG'].split('_')[1]]} model (filled markers) and the 2x2x2-label "
         f"fine-tune with its {stage[md['ftK'].split('_')[1]]} model (open markers). "
         f"**a**, Li D against 1000/T of the production runs at {', '.join(map(str, C.TEMPERATURES[:-1]))} and "
-        f"{C.TEMPERATURES[-1]} K (circles joined by lines; where markers would overlap, MatterSim and fine-tune "
-        f"points are offset horizontally by at most +/-{max(abs(v) for o in A_OFFSET.values() for v in o.values()):g} "
-        "in 1000/T, MACE-MP-0 and AIMD points sit at their true 1000/T) "
+        f"{C.TEMPERATURES[-1]} K (circles joined by lines; so that markers do not overlap, the Gamma and 2x2x2 "
+        f"fine-tuned points are offset horizontally by {A_OFFSET['ftG']:+g} and {A_OFFSET['ftK']:+g} in 1000/T, "
+        "while MACE-MP-0, MatterSim and AIMD points sit at their true 1000/T) "
         f"and of AIMD at {int(aimd.index.min())}-{int(aimd.index.max())} K (black squares; {aimd_d} cm2/s). "
         f"At {caged_text} the AIMD Li MSD is almost flat in the fit window (log-log slope "
         f"{common.sig(aimd.loc[caged[0], 'msd_loglog_slope_fit_window'], 2)}): that point measures caged motion, not "
@@ -380,15 +390,19 @@ def _caption() -> str:
         "of each circle). At "
         f"{' / '.join(map(str, hot))} K: {key_numbers}. Grey column, {caged_text}, where AIMD is caged. "
         f"**c**, Li mean-squared displacement against lag time at {' and '.join(map(str, MSD_TEMPERATURES))} K, "
-        f"averaged over all time origins; grey band, the MLIP fit window (lag >= {start:g} ps); black bar, the "
-        f"AIMD fit window (lag >= {aimd_start:g} ps). Log-log slopes in the fit window at {MSD_TEMPERATURES[0]} K: "
-        f"{slope_text[MSD_TEMPERATURES[0]]}; at {MSD_TEMPERATURES[1]} K: {slope_text[MSD_TEMPERATURES[1]]} "
-        "(1 for diffusive motion). "
+        f"averaged over all time origins, one trajectory each (single curves, no error bars); grey band, the MLIP "
+        f"fit window (lag >= {start:g} ps); black bar, the AIMD fit window (lag >= {aimd_start:g} ps). The key in "
+        "each panel gives the log-log slope in the fit window (1 for diffusive motion); at "
+        f"{MSD_TEMPERATURES[0]} K: {slope_text[MSD_TEMPERATURES[0]]}; at {MSD_TEMPERATURES[1]} K: "
+        f"{slope_text[MSD_TEMPERATURES[1]]}. "
         "**d**, Li force softening slope of the three MACE-family models that ran MD (least-squares slope through "
         "the origin of model against 2x2x2 DFT Li force components on the "
-        f"{n_configs} configurations held out by both fine-tunes, {SOFTENING_SUBSET}; {n_components} components) "
-        f"against their kinisi D ratio to AIMD at {RATIO_TEMPERATURE} K (logarithmic axis; error bars as in b). "
-        f"Slope and ratio: {soft_text}. n = {len(md)} models, no fit. "
+        f"{n_configs} configurations not trained on by either fine-tune, {SOFTENING_SUBSET}, which are the "
+        f"validation configurations of both; {n_components} components) against their kinisi D ratio to AIMD at "
+        f"{RATIO_TEMPERATURE} K (logarithmic axis; error bars as in b; the slope is a single value without error "
+        f"bar). Slope and ratio: {soft_text}. The two fine-tuned points have the same slope to two decimals and are "
+        f"offset vertically by {D_OFFSET['ftG']:+g} (Gamma) and {D_OFFSET['ftK']:+g} (2x2x2) so that their error "
+        f"bars do not cross. n = {len(md)} models, no fit. "
         f"The 52-atom runs and a second 416-atom MACE-MP-0 run are in {registry.label('sampling')}. "
         + common.sources([TRANSPORT, MSD, AIMD, AIMD_MSD, AIMD_COMPARISON, CROSS])
     )

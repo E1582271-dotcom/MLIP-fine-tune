@@ -129,12 +129,14 @@ def _panel_b(ax, transport: pd.DataFrame) -> None:
                 "linestyle": "none"}
     ax.plot(x + PYMATGEN_OFFSET, transport["D_cm2_s"], **pymatgen, zorder=2)
     tops = np.maximum(transport["D_cm2_s"], transport["kinisi_D_cm2_s"] + transport["kinisi_D_std_cm2_s"])
-    for xi, top, temperature, slope in zip(x, tops, transport["temperature_K"],
-                                           transport["msd_loglog_slope_fit_window"]):
-        ax.text(xi, top * 1.4, f"{temperature} K\nslope {common.sig(slope)}" + ("\ncaged" if temperature in caged
-                                                                                 else ""),
-                ha="center", va="bottom", fontsize=style.SMALL, linespacing=1.1, color=style.BLACK,
-                style="italic" if temperature in caged else "normal")
+    bottoms = np.minimum(transport["D_cm2_s"], transport["kinisi_D_cm2_s"] - transport["kinisi_D_std_cm2_s"])
+    below = transport["temperature_K"].max()  # its label goes under the point, clear of the next label
+    for xi, top, bottom, temperature, slope in zip(x, tops, bottoms, transport["temperature_K"],
+                                                   transport["msd_loglog_slope_fit_window"]):
+        text = f"{temperature} K\nslope {common.sig(slope)}" + ("\ncaged" if temperature in caged else "")
+        ax.text(xi, bottom / 1.4 if temperature == below else top * 1.4, text, ha="center",
+                va="top" if temperature == below else "bottom", fontsize=style.SMALL, linespacing=1.1,
+                color=style.BLACK, style="italic" if temperature in caged else "normal")
     ax.set_yscale("log")
     ax.set_ylim(2e-7, 6e-4)
     style.log_ticks(ax, "y")
@@ -338,6 +340,7 @@ def _caption() -> str:
                              f"{common.sig(universal[s]['sigma300_max_mS_cm'])}]"
                              for s, m in UNIVERSAL_SERIES.items())
     decades = np.log10(aimd_high / aimd_low)
+    below_text = f"{transport['temperature_K'].max():.0f}"
     return (
         registry.heading(KEY) + "Li transport of every model is compared with ab initio MD (AIMD) "
         "of the same ordered Li6PS5Cl cell (Li24P4S20Cl4, Cl on 4a, S on 4c; amendment A3): the trajectories of "
@@ -353,19 +356,21 @@ def _caption() -> str:
         f"AIMD are in {registry.label('sampling')}), one trajectory per temperature in both. The comparison of the "
         f"four production models with this reference is {registry.label('diffusion')}. "
         f"**a**, Mean-squared displacement of Li, P, S and Cl from the single trajectory at each temperature "
-        f"(n = 1; averaged over all time origins, centre-of-mass drift removed; no error bars); grey, the kinisi "
+        f"(n = 1; averaged over all time origins, centre-of-mass drift removed; one curve per trajectory, no error "
+        f"bars); grey, the kinisi "
         f"fit window (lags from {100 * C.KINISI_START_FRACTION:.0f} % of the run). The framework stays in place: "
         f"at the longest lag P, S and Cl reach at most {common.sig(framework_max['P'])}, "
         f"{common.sig(framework_max['S'])} and {common.sig(framework_max['Cl'])} A^2 at any temperature. At {t0} K "
         f"the Li MSD is caged at {m0['msd_Li_A2'].min():.1f}-{m0['msd_Li_A2'].max():.1f} A^2 across the fit window. "
         f"**b**, AIMD Li D against 1000/T, one trajectory per temperature: kinisi (seed 0; squares; error bars, the "
         f"posterior standard deviation; {kinisi} cm^2/s) and pymatgen (dashes, drawn just right of the "
-        f"squares; no error estimate; {pymatgen} cm^2/s), in the order {', '.join(map(str, aimd.TEMPERATURES))} K. Labels give the temperature and the "
-        f"log-log slope of the Li MSD in the fit window ({slopes}); a slope near 1 is diffusive. At {t0} K (slope "
+        f"squares; no error estimate; {pymatgen} cm^2/s), in the order {', '.join(map(str, aimd.TEMPERATURES))} K. Labels (above each point, below it at "
+        f"{below_text} K) give the temperature and the log-log slope of the Li MSD in the fit window ({slopes}); a slope near 1 is diffusive. At {t0} K (slope "
         f"{common.sig(info.loc[t0, 'msd_loglog_slope_fit_window'])}, italic label 'caged') neither estimator "
         "measures a diffusion coefficient, so a 600 K ratio to AIMD is not a ratio of diffusion coefficients; the "
         "1200 K run has no MLIP counterpart. "
-        f"**c**, kinisi D for seeds 1-10 (n = {n_seeds} per temperature; grey squares, jittered horizontally) "
+        f"**c**, kinisi D for seeds 1-10 (n = {n_seeds} per temperature; grey squares, jittered horizontally; "
+        f"single values, no error bars) "
         f"relative to seed 0 (black bar); they span {100 * seeds_dev[seeds_dev['seed'] != 0]['dev'].min():+.2f} to "
         f"{100 * seeds_dev[seeds_dev['seed'] != 0]['dev'].max():+.2f} %. s_seed, their relative standard deviation "
         f"({scatter} %), is {common.sig(100 * share.min())}-{common.sig(100 * share.max())} % of the posterior "

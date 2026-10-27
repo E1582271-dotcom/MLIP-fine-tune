@@ -30,7 +30,7 @@ from . import common, registry, style
 KEY = "stability"
 NAME = registry.number(KEY)
 PANELS = "abcdef"
-WIDTH, HEIGHT = 183.0, 238.0
+WIDTH, HEIGHT = 183.0, 241.0
 THERMOSTAT = paths.RESULTS / "thermostat.csv"
 TIMESERIES = paths.MD / "timeseries.csv.gz"
 MSD = paths.MD / "msd.csv.gz"
@@ -41,29 +41,31 @@ SERIES_ORDER = ("mace_52_050", "mace_52_100", "mace_52_150", "mattersim_52_050",
                 "clx000_416_150", "clx025_408_150", "clx050_400_150", "clx075_392_150")
 TICKS = {"mace_52_050": "50 ps", "mace_52_100": "100 ps", "mace_52_150": "150 ps",
          "mattersim_52_050": "50 ps", "mattersim_52_100": "100 ps", "mattersim_52_150": "150 ps",
-         "mace_416_200": "MACE-MP-0", "mattersim_416_200": "MatterSim", "ftG_416_200": "Gamma labels",
-         "ftK_416_200": "2x2x2 labels", "clx000_416_150": "x = 0", "clx025_408_150": "x = 0.25",
+         "mace_416_200": "MACE-MP-0", "mattersim_416_200": "MatterSim", "ftG_416_200": "Gamma, stage 2",
+         "ftK_416_200": "2x2x2, stage 1", "clx000_416_150": "x = 0", "clx025_408_150": "x = 0.25",
          "clx050_400_150": "x = 0.50", "clx075_392_150": "x = 0.75"}
 GROUPS = (("MACE-MP-0\n52 atoms", SERIES_ORDER[0:3]), ("MatterSim\n52 atoms", SERIES_ORDER[3:6]),
           ("416 atoms\n200 ps", SERIES_ORDER[6:10]), ("Cl-excess\n150 ps", SERIES_ORDER[10:14]))
-GROUP_GAP = 0.8
+GROUP_GAP = 0.5
 GROUP_GAP_E, WIDE_SLOT = 0.6, 1.6  # panel e: gap between groups, slot width of the ~400-atom runs
-T_OFFSETS = dict(zip(C.TEMPERATURES, (-0.3, 0.0, 0.3)))
+T_OFFSETS = dict(zip(C.TEMPERATURES, (-1.0 / 3.0, 0.0, 1.0 / 3.0)))  # equal spacing within and between series
 PRODUCTION_MODELS = {"mace_416_200": "foundation", "mattersim_416_200": "mattersim", "ftG_416_200": "ftG",
                      "ftK_416_200": "ftK"}
-LOG_TICKS = {"mace_416_200": "MACE-MP-0", "mattersim_416_200": "MatterSim", "ftG_416_200": "Gamma",
-             "ftK_416_200": "2x2x2", "clx000_416_150": "x = 0", "clx025_408_150": "x = 0.25",
+LOG_TICKS = {"mace_416_200": "MACE-MP-0", "mattersim_416_200": "MatterSim", "ftG_416_200": "Gamma,\nstage 2",
+             "ftK_416_200": "2x2x2,\nstage 1", "clx000_416_150": "x = 0", "clx025_408_150": "x = 0.25",
              "clx050_400_150": "x = 0.50", "clx075_392_150": "x = 0.75"}
+D_LINES = {"ftK": (0, (3.0, 1.2))}  # d: the 2x2x2 model dashed, so that it reads apart from the Gamma one
 MARKER = 3.2  # marker diameter (pt) of a run in a-c and e
-HALO = 2.0  # the "run log survives" outline is this much wider than the marker (pt)
+HALO = 1.5  # the "run log survives" outline is this much wider than the marker (pt)
 KIND_LABELS = {"cell_52": "52 atoms", "production": "416 atoms, 200 ps", "clexcess": "Cl excess, 392-416 atoms"}
 
 # Layout (mm from the top-left corner)
 LEFT, A_WIDTH = 20.0, 94.0  # a-c, and the left edge of e and f
-D_LEFT, D_WIDTH = 131.0, 50.0
+RIGHT = 180.0  # right frame edge of d, e and f (tick labels at the right limit stay on the canvas)
+D_LEFT, D_WIDTH = 131.0, RIGHT - 131.0
 ROWS = ((17.0, 30.0), (52.0, 24.0), (81.0, 24.0))  # (top, height) of a/d1 (hero row), b/d2, c/d3
 E_TOP, E_HEIGHT, E_STEP = 131.0, 13.5, 16.0
-F_TOP, F_HEIGHT, F_GAP = 197.0, 31.0, 3.0
+F_TOP, F_HEIGHT, F_GAP = 200.0, 31.0, 3.0
 
 
 def _load():
@@ -122,8 +124,8 @@ def _run_markers(ax, x: float, y: float, series_id: str, temperature: int, logge
         ax.errorbar(x, y, yerr=yerr, fmt="none", ecolor=color, elinewidth=0.6, capsize=1.0, capthick=0.6,
                     zorder=2)
     ax.plot(x, y, **_run_style(series_id, temperature), zorder=3)
-    if logged:
-        ax.plot(x, y, **_halo_style(style.RUN_MARKERS[_kind(series_id)]), zorder=4)
+    if logged:  # the outline surrounds its own marker on purpose; QA checks the marker itself
+        common.allow_overlap(ax.plot(x, y, **_halo_style(style.RUN_MARKERS[_kind(series_id)]), zorder=4))
 
 
 def _run_legend(ax, error_label: str) -> None:
@@ -139,7 +141,7 @@ def _run_legend(ax, error_label: str) -> None:
                  Line2D([0], [0], **_halo_style("o"))),
                 Line2D([0], [0], marker="|", linestyle="none", markersize=4.6, markeredgewidth=0.6,
                        color=style.BLACK)]
-    labels += ["open: 2x2x2 labels, stage 1", "July run log survives", error_label]
+    labels += ["open: 2x2x2, stage 1", "July run log survives", error_label]
     ax.legend(handles=handles, labels=labels, handler_map={tuple: HandlerTuple(ndivide=1)},
               loc="lower left", bbox_to_anchor=(0.0, 1.02), ncol=3, fontsize=style.SMALL, handletextpad=0.4,
               columnspacing=1.4, labelspacing=0.45, borderaxespad=0.0, handlelength=1.4)
@@ -197,8 +199,8 @@ def _series_axis(ax, positions: dict[str, float], labels: bool) -> None:
     for label in ax.get_xticklabels():
         label.set_rotation(90)
     blend = ax.get_xaxis_transform()
-    line = transforms.offset_copy(blend, fig=ax.figure, y=-40.0, units="points")
-    text = transforms.offset_copy(blend, fig=ax.figure, y=-41.5, units="points")
+    line = transforms.offset_copy(blend, fig=ax.figure, y=-44.0, units="points")
+    text = transforms.offset_copy(blend, fig=ax.figure, y=-45.5, units="points")
     for name, members in GROUPS:
         first, last = positions[members[0]], positions[members[-1]]
         ax.plot([first - 0.35, last + 0.35], [0, 0], color=style.BLACK, lw=0.5, transform=line, clip_on=False)
@@ -278,7 +280,7 @@ def _panel_c(ax, thermo: pd.DataFrame, errors: pd.DataFrame, positions: dict[str
     _series_axis(ax, positions, labels=True)
     ax.set_ylim(-0.32, 0.32)
     ax.set_yticks([-0.3, -0.2, -0.1, 0, 0.1, 0.2, 0.3], ["-0.3", "-0.2", "-0.1", "0", "0.1", "0.2", "0.3"])
-    ax.set_ylabel("Energy drift\n(meV atom$^{-1}$ ps$^{-1}$)")
+    ax.set_ylabel("Energy drift\n(meV/atom/ps)")
     style.save_source(pd.DataFrame(rows), NAME, "c")
 
 
@@ -300,14 +302,15 @@ def _panel_d(axes, series: pd.DataFrame) -> None:
                     zorder=1)
             mean = value[:n].reshape(-1, size).mean(axis=1)
             coarse.append(np.repeat(mean, size))
-            ax.plot(coarse_time, mean, color=style.MODEL_COLORS[model], lw=0.9, zorder=3)
+            ax.plot(coarse_time, mean, color=style.MODEL_COLORS[model], lw=0.9, ls=D_LINES.get(model, "-"),
+                    zorder=3)
         rows.extend({"run_id": run, "model": model, "time_ps": t, "T_K": a, "E_minus_run_mean_meV_atom": b,
                      "P_GPa": c, "T_K_5ps": ca, "E_minus_run_mean_meV_atom_5ps": cb, "P_GPa_5ps": cc}
                     for t, a, b, c, ca, cb, cc in zip(frame["time_ps"], frame["T_K"], energy, frame["P_GPa"],
                                                       *coarse))
     axes[0].axhline(SERIES_TEMPERATURE, **{**style.IDENTITY_LINE, "color": style.BLACK, "zorder": 4})
     axes[1].axhline(0, **{**style.IDENTITY_LINE, "color": style.BLACK, "zorder": 4})
-    labels = ("T (K)", "E - mean\n(meV atom$^{-1}$)", "P (GPa)")
+    labels = ("T (K)", "E - mean\n(meV/atom)", "P (GPa)")
     for index, (ax, label) in enumerate(zip(axes, labels)):
         ax.set_xlim(0, 200)
         ax.set_xticks([0, 50, 100, 150, 200])
@@ -322,9 +325,10 @@ def _panel_d(axes, series: pd.DataFrame) -> None:
     axes[2].set_yticks([-0.5, 0, 0.5, 1.0])
     axes[-1].set_xlabel("Production time (ps)")
     handles = [Line2D([0], [0], color=style.MODEL_COLORS[PRODUCTION_MODELS[s]], lw=1.0,
+                      ls=D_LINES.get(PRODUCTION_MODELS[s], "-"),
                       label=_model_name(PRODUCTION_MODELS[s])) for s in C.PRODUCTION_SERIES]
     axes[0].legend(handles=handles, loc="lower left", bbox_to_anchor=(0.0, 1.02), ncol=2, fontsize=style.SMALL,
-                   handlelength=1.2, handletextpad=0.4, columnspacing=1.2, labelspacing=0.35, borderaxespad=0.0)
+                   handlelength=1.8, handletextpad=0.4, columnspacing=1.2, labelspacing=0.35, borderaxespad=0.0)
     axes[2].text(0.99, 0.96, f"{SERIES_TEMPERATURE} K; thin, 0.5-ps blocks; thick, {BLOCK_PS:g}-ps blocks",
                  transform=axes[2].transAxes, ha="right", va="top", fontsize=style.SMALL)
     style.save_source(pd.DataFrame(rows), NAME, "d")
@@ -408,8 +412,8 @@ def _panel_e(axes, thermo: pd.DataFrame) -> None:
              "mattersim_52_100": "MatterSim, 52 atoms\n100 ps", "mace_52_150": "MACE-MP-0, 52 atoms\n150 ps",
              "production": "416 atoms, 200 ps", "clexcess": "Cl-excess, 150 ps"}
     blend = bottom.get_xaxis_transform()
-    line = transforms.offset_copy(blend, fig=bottom.figure, y=-15.0, units="points")
-    text = transforms.offset_copy(blend, fig=bottom.figure, y=-16.5, units="points")
+    line = transforms.offset_copy(blend, fig=bottom.figure, y=-21.0, units="points")
+    text = transforms.offset_copy(blend, fig=bottom.figure, y=-22.5, units="points")
     for family, members in groups:
         bottom.plot([members[0] - 0.35, members[-1] + 0.35], [0, 0], color=style.BLACK, lw=0.5, transform=line,
                     clip_on=False)
@@ -444,7 +448,7 @@ def _panel_f(axes, msd: pd.DataFrame) -> None:
         style.log_ticks(ax, "x")
         style.log_ticks(ax, "y")
         ax.set_xticks([0.1, 1, 10, 100], ["0.1", "1", "10", "100"])
-        ax.set_title(_model_name(model), fontsize=style.FONT_SIZE, pad=2.5, color=style.MODEL_COLORS[model])
+        ax.set_title(_model_name(model), fontsize=style.FONT_SIZE, pad=2.5)  # black: Li is navy in this panel
         if index:
             ax.set_yticks([0.1, 1, 10, 100, 1000], [])
         else:
@@ -476,15 +480,15 @@ def make() -> list[Path]:
             for i, (top, height) in enumerate(ROWS, start=1)]
     _panel_d(ax_d, series)
 
-    ax_e = [L.axes(LEFT, E_TOP + i * E_STEP, WIDTH - 2.0 - LEFT, E_HEIGHT, row=f"e{i}", col="left")
+    ax_e = [L.axes(LEFT, E_TOP + i * E_STEP, RIGHT - LEFT, E_HEIGHT, row=f"e{i}", col="left")
             for i in range(3)]
     _panel_e(ax_e, thermo)
 
-    f_width = (WIDTH - 2.0 - LEFT - 3 * F_GAP) / 4
+    f_width = (RIGHT - LEFT - 3 * F_GAP) / 4
     ax_f = [L.axes(LEFT + i * (f_width + F_GAP), F_TOP, f_width, F_HEIGHT, row="f",
                    col="left" if i == 0 else f"f{i}") for i in range(4)]
     _panel_f(ax_f, msd)
-    L.text(LEFT + (WIDTH - 2.0 - LEFT) / 2, F_TOP + F_HEIGHT + 4.6, "Lag time (ps)", ha="center", va="top")
+    L.text(LEFT + (RIGHT - LEFT) / 2, F_TOP + F_HEIGHT + 4.6, "Lag time (ps)", ha="center", va="top")
 
     L.letter(ax_a, "a", 4.0, 7.5)
     L.letter(ax_b, "b", 4.0, ROWS[1][0] - 0.5)
@@ -571,12 +575,14 @@ def _caption() -> str:
         f"averages; {int((drift_z > 2).sum())} of {n_runs} drifts exceed two standard errors (largest "
         f"{frame['drift_meV_atom_ps'].abs().max():.3f} meV/atom/ps). "
         f"**d**, Temperature, potential energy per atom (minus its run mean) and pressure of the four 416-atom, "
-        f"200-ps production runs at {SERIES_TEMPERATURE} K (n = 4; colour, the model that drove the run), as "
-        f"0.5-ps block means (thin lines) and {BLOCK_PS:g}-ps block means (thick lines); temperature "
+        f"200-ps production runs at {SERIES_TEMPERATURE} K (n = 4 runs; colour, the model that drove the run; "
+        f"thick dashed line, 2x2x2, stage 1), as 0.5-ps block means (thin lines) and {BLOCK_PS:g}-ps block means "
+        f"(thick lines); single runs, no error bars; temperature "
         f"{t_range[0]:.0f}-{t_range[1]:.0f} K; dashed lines, the target temperature and the run mean of the "
         f"energy. Mean pressure: {p_text} GPa. "
         f"**e**, Statistics recomputed from the trajectories minus the values in the July run logs, for the "
-        f"n = {n_logged} runs whose log survives. Grey bands, the tolerance of protocol item 7: |d mean T| <= "
+        f"n = {n_logged} runs whose log survives (single values, no error bars). Grey bands, the tolerance of "
+        f"protocol item 7: |d mean T| <= "
         f"{R.THERMOSTAT_T_TOLERANCE_K[52]:g} K for 52 atoms and {R.THERMOSTAT_T_TOLERANCE_K[416]:g} K for 392-416 "
         f"atoms (the logs include one extra sample at step 0 and round to 0.1 K); mean energy and drift within one "
         f"unit of the logged rounding (10^-{R.LOGGED_DECIMALS['mean_E_per_atom']} eV/atom and "

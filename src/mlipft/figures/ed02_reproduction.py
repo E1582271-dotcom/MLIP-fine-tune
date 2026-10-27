@@ -32,7 +32,7 @@ from . import common, registry, style
 KEY = "reproduction"
 NAME = registry.number(KEY)
 PANELS = "abcdefg"
-WIDTH, HEIGHT = 183.0, 186.0
+WIDTH, HEIGHT = 183.0, 238.0
 RUNS = paths.RESULTS / "reproduction_runs.csv"
 FITS = paths.RESULTS / "reproduction_fits.csv"
 THERMOSTAT = paths.RESULTS / "thermostat.csv"
@@ -43,6 +43,7 @@ SEEDS = paths.MD / "kinisi_seeds.csv"
 RULE = paths.PROTOCOL / "reproduction_rule.md"
 AMENDMENTS = paths.PROTOCOL / "amendments.md"
 
+SUBSET_X = 0.25  # e: x of the asterisks that flag a training error logged over a subset (training axes)
 ZERO_FLOOR = 1e-17  # exact zeros of the pymatgen difference are drawn here
 FLOAT64_EPS = float(np.finfo(np.float64).eps)
 GROUP = 4  # x units per series: three runs and a gap
@@ -59,10 +60,18 @@ FAMILY_MODELS = {"foundation": "foundation", "mattersim": "mattersim", "ftG": "f
 # Layout (mm from the top-left corner)
 LEFT, STRIP_WIDTH = 20.0, 161.0
 STRIPS = ((13.0, 24.0), (44.0, 18.0), (69.0, 18.0), (94.0, 18.0))  # (top, height) of a (hero), b, c, d
-BOTTOM_TOP, BOTTOM_HEIGHT = 139.0, 34.0
-E_LEFT, E_VALID, E_GAP, E_TRAIN = 34.0, 19.0, 3.0, 22.0
-F_LEFT, F_WIDTH = 92.0, 32.0
-G_LEFT, G_WIDTH = 141.0, 40.0
+BOTTOM_TOP, BOTTOM_HEIGHT = 139.0, 34.0  # e and f
+E_LEFT, E_VALID, E_GAP, E_TRAIN = 36.0, 28.0, 3.0, 33.0
+E_SWATCH_MM, E_LABEL_PAD_MM = 1.6, 3.4  # e: model swatch centre and row-name end, left of the frame
+F_LEFT, F_WIDTH = 118.0, 63.0
+F_MARKER, F_SPACING = 2.6, 1.6  # f: marker diameter (pt) and centre spacing (mm) of the swarm
+G_TOP, G_HEIGHT, G_GAP = 194.0, 34.0, 12.0  # g: three panels, one per run type
+G_MARKER = 2.8
+# g: run type -> (title, x limits, x ticks, y limits, y ticks); each panel is zoomed to its runs so that the
+# markers of different models stay apart (one artist per model and run type)
+G_PANELS = (("cell_52", "52 atoms", (11.0, 42.0), (15, 20, 30, 40), (0.3, 1.45), (0.3, 0.5, 1)),
+            ("production", "416 atoms, 200 ps", (4.5, 28.0), (5, 10, 20), (0.09, 1.1), (0.1, 0.2, 0.5, 1)),
+            ("clexcess", "Cl excess, 392-416 atoms, 150 ps", (5.2, 10.5), (6, 8, 10), (0.12, 0.8), (0.2, 0.5)))
 
 
 def _load():
@@ -189,7 +198,7 @@ def _panel_a(ax, runs: pd.DataFrame, series: list[dict]) -> Path:
     ax.axhline(FLOAT64_EPS, color=style.GRAY, lw=0.5, ls=(0, (1, 1.5)), zorder=1)
     right = ax.get_xlim()[1]
     for value, name in ((rule.PYMATGEN_EXACT, "R1"), (rule.PYMATGEN_REPRODUCED, "R2")):
-        ax.text(right - 0.3, value * 2.0, f"{name} limit, $10^{{{int(round(np.log10(value)))}}}$", ha="right",
+        ax.text(right - 0.3, value * 3.0, f"{name} limit, $10^{{{int(round(np.log10(value)))}}}$", ha="right",
                 va="bottom", fontsize=style.SMALL)
     style.log_ticks(ax, "y")
     ax.set_yticks([ZERO_FLOOR, 1e-15, 1e-12, 1e-9, 1e-6],
@@ -225,7 +234,7 @@ def _panel_kinisi(ax, runs: pd.DataFrame, series: list[dict], quantity: str, flo
             ax.plot([x - 0.25, x + 0.25], [s, s], color=style.GRAY, lw=0.8, solid_capstyle="butt", zorder=2)
     for row, y in zip(runs.itertuples(), diff):
         ax.plot(row.x, y, **_run_style(row.series, row.temperature_K), zorder=3)
-    ax.set_ylim(-0.07 * top, top)
+    ax.set_ylim(-0.11 * top, top)
     ax.set_ylabel("Relative\ndifference (%)")
     _title(ax, f"{title} (closest: {ratio.max():.3f} of its threshold)")
     handles = [Line2D([0], [0], color=style.BLACK, lw=1.0),
@@ -247,7 +256,7 @@ def _panel_d(ax, fits: pd.DataFrame, series: list[dict]) -> Path:
     fits = fits.assign(group=fits["series"].map(order)).sort_values("group").reset_index(drop=True)
     x = fits["group"] * GROUP + 1.0
     _frame_runs(ax, series, labels=True)
-    lo, hi = 1e-4, 4.0
+    lo, hi = 1e-4, 10.0
     ax.axhspan(rule.FIT_REPRODUCED, rule.FIT_CONSISTENT, **style.BAND_FILL)
     ax.axhspan(rule.FIT_CONSISTENT, hi, **{**style.BAND_FILL, "color": style.LIGHT_GRAY})
     ax.axhline(rule.FIT_REPRODUCED, color=style.BLACK, lw=0.7, zorder=1)
@@ -309,7 +318,7 @@ def _panel_e(axes, logs: pd.DataFrame, configs: pd.DataFrame) -> Path:
             if subset:
                 subset_text = (f"logged over {int(row['train_evaluated_by_log'])} of "
                                f"{n_train[model.split('_')[0]]} training configurations")
-                ax.text(difference + 0.016, y - 0.08, "*", ha="left", va="center", fontsize=style.LABEL)
+                ax.text(SUBSET_X, y, "*", ha="left", va="center_baseline", fontsize=style.LABEL)
             rows.append({"model": model, "labels": row["labels"], "epoch": row["epoch"], "set": kind,
                          "logged_meV_A": logged, "reevaluated_meV_A": row[f"reevaluated_{kind}_rmse_f_meV_A"],
                          "difference_meV_A": difference, "half_printed_digit_meV_A": half,
@@ -319,20 +328,22 @@ def _panel_e(axes, logs: pd.DataFrame, configs: pd.DataFrame) -> Path:
         ax.axvline(0, **style.UNITY_LINE)
         ax.set_ylim(len(logs) - 0.5, -0.5)
         ax.set_yticks(range(len(logs)))
-        ax.tick_params(axis="y", length=0, pad=2.0)
+        ax.tick_params(axis="y", length=0, pad=E_LABEL_PAD_MM * 72.0 / 25.4)  # mm to pt
     valid, train = axes
     valid.set_xlim(-0.08, 0.08)
     valid.set_xticks([-0.05, 0.0, 0.05], ["-0.05", "0", "0.05"])
-    train.set_xlim(-0.08, 0.28)
+    train.set_xlim(-0.08, 0.30)
     train.set_xticks([0.0, 0.1, 0.2], ["0", "0.1", "0.2"])
     names = []
     for row in logs.itertuples():
         name = common.SHORT_LABELS[row.model]
         names.append(f"{name}, epoch {int(row.epoch)}" if row.model != "foundation"
                      else f"{name}, before fine-tuning")
-    valid.set_yticks(range(len(logs)), names, fontsize=style.SMALL)
-    for tick, model in zip(valid.get_yticklabels(), LOG_MODELS):
-        tick.set_color(style.MODEL_COLORS[model])
+    valid.set_yticks(range(len(logs)), names, fontsize=style.SMALL)  # black names, a model swatch beside each
+    swatch = transforms.blended_transform_factory(valid.transAxes, valid.transData)
+    for y, model in enumerate(LOG_MODELS):
+        valid.plot(-E_SWATCH_MM / E_VALID, y, **common.model_style(model, size=3.0), transform=swatch, clip_on=False,
+                   zorder=3)
     train.set_yticks(range(len(logs)), [])
     valid.set_title("validation set", fontsize=style.SMALL, pad=2.0)
     train.set_title("training set", fontsize=style.SMALL, pad=2.0)
@@ -345,21 +356,45 @@ def _panel_e(axes, logs: pd.DataFrame, configs: pd.DataFrame) -> Path:
     return style.save_source(pd.DataFrame(rows), NAME, "e")
 
 
+def _swarm(y_mm: np.ndarray, spacing: float) -> np.ndarray:
+    """Horizontal offsets (mm) that keep markers at heights ``y_mm`` (mm) at least ``spacing`` apart.
+
+    Lowest value first, each marker at the free position closest to the column centre (right before left):
+    a deterministic beeswarm.
+    """
+    placed: list[tuple[float, float]] = []
+    out = np.zeros(len(y_mm))
+    for i in np.argsort(y_mm, kind="stable"):
+        y = float(y_mm[i])
+        candidates = [0.0] + [sign * step * spacing / 2.0 for step in range(1, 400) for sign in (1.0, -1.0)]
+        x = next(c for c in candidates if all((c - px) ** 2 + (y - py) ** 2 >= spacing ** 2 for px, py in placed))
+        placed.append((x, y))
+        out[i] = x
+    return out
+
+
 def _panel_f(ax, thermostat: pd.DataFrame) -> Path:
     checked = thermostat[thermostat["run_log"].fillna("").astype(str) != ""].sort_values(
         ["series", "temperature_K"]).reset_index(drop=True)
-    rows = []
-    for index, (key, column, ok_column, _) in enumerate(THERMO_CHECKS):
+    columns = []
+    for key, column, ok_column, _ in THERMO_CHECKS:
         values = checked[["run_id", "series", "temperature_K", "n_atoms", column, ok_column]].dropna(subset=[column])
         if key == "mean_T":
             tolerance = np.where(values["n_atoms"] > 100, rule.THERMOSTAT_T_TOLERANCE_K[416],
                                  rule.THERMOSTAT_T_TOLERANCE_K[52])
         else:
             tolerance = np.full(len(values), 10.0 ** -rule.LOGGED_DECIMALS[key])
-        scaled = values[column].abs().to_numpy() / tolerance
-        offsets = common.jitter(len(values), 0.6, seed=index)
+        columns.append((key, column, ok_column, values, tolerance, values[column].abs().to_numpy() / tolerance))
+    top = max(1.6, max(float(scaled.max()) for *_, scaled in columns) * 1.12)
+    bottom = -0.06 * top
+    x_lim = (-0.6, len(THERMO_CHECKS) - 0.4)
+    mm_per_x = F_WIDTH / (x_lim[1] - x_lim[0])
+    rows = []
+    for index, (key, column, ok_column, values, tolerance, scaled) in enumerate(columns):
+        y_mm = (scaled - bottom) / (top - bottom) * BOTTOM_HEIGHT
+        offsets = _swarm(y_mm, F_SPACING) / mm_per_x
         for (_, run), y, dx, tol in zip(values.iterrows(), scaled, offsets, tolerance):
-            ax.plot(index + dx, y, **_run_style(run["series"], run["temperature_K"], 2.8), zorder=3)
+            ax.plot(index + dx, y, **_run_style(run["series"], run["temperature_K"], F_MARKER), zorder=3)
             rows.append({"run_id": run["run_id"], "run_type": _kind(run["series"]), "quantity": key,
                          "difference": run[column], "tolerance": tol, "difference_over_tolerance": y,
                          "x": index + dx, "ok": str(run[ok_column]).lower() == "true"})
@@ -368,9 +403,8 @@ def _panel_f(ax, thermostat: pd.DataFrame) -> Path:
             fontsize=style.SMALL)
     ax.set_xticks(range(len(THERMO_CHECKS)), [c[3] for c in THERMO_CHECKS])
     ax.tick_params(axis="x", length=0, pad=2.0)
-    ax.set_xlim(-0.6, len(THERMO_CHECKS) - 0.4)
-    top = max(1.6, max(r["difference_over_tolerance"] for r in rows) * 1.12)
-    ax.set_ylim(-0.06 * top, top)
+    ax.set_xlim(*x_lim)
+    ax.set_ylim(bottom, top)
     ticks = np.arange(0.0, top, 0.5)
     ax.set_yticks(ticks, [f"{v:g}" for v in ticks])
     ax.set_ylabel("|Difference| /\ntolerance")
@@ -397,37 +431,43 @@ def _seed_table() -> pd.DataFrame:
     return scatter
 
 
-def _panel_g(ax) -> Path:
+def _panel_g(axes) -> Path:
+    """s_seed against the posterior width, one axes per run type, one artist per model in each."""
     scatter = _seed_table()
+    scatter["model"] = scatter["series"].map(lambda s: FAMILY_MODELS[SERIES_BY_ID[s]["model"]])
+    scatter["run_type"] = scatter["series"].map(_kind)
     crossover = rule.KINISI_D_FLOOR / rule.KINISI_SEED_FACTOR * 100.0
-    ax.axhline(crossover, color=style.BLACK, lw=0.6, ls=(0, (3, 2)), zorder=1)
-    ax.text(0.03, crossover * 1.1, f"{rule.KINISI_SEED_FACTOR:g} s$_{{seed}}$ = {100 * rule.KINISI_D_FLOOR:g} %",
-            transform=ax.get_yaxis_transform(), ha="left", va="bottom", fontsize=style.SMALL)
-    rows = []
-    for row in scatter.itertuples():
-        model = FAMILY_MODELS[SERIES_BY_ID[row.series]["model"]]
-        ax.plot(row.posterior_rel * 100.0, row.s_seed * 100.0,
-                **_series_style(row.series, style.MODEL_COLORS[model]), zorder=3)
-        rows.append({"run_id": row.run_id, "series": row.series, "model": model, "run_type": _kind(row.series),
-                     "temperature_K": row.temperature_K,
-                     "kinisi_posterior_rel_std_percent": row.posterior_rel * 100.0,
-                     "s_seed_percent": row.s_seed * 100.0, "n_seeds": row.n_seeds,
-                     "rule_threshold_percent": max(rule.KINISI_SEED_FACTOR * row.s_seed,
-                                                   rule.KINISI_D_FLOOR) * 100.0})
-    ax.set_xscale("log")
-    ax.set_yscale("log")
-    ax.set_xlim(4.0, 50.0)
-    ax.set_ylim(0.09, 2.2)
-    style.log_ticks(ax, "x")
-    style.log_ticks(ax, "y")
-    ax.set_xticks([5, 10, 20, 50], ["5", "10", "20", "50"])
-    ax.set_yticks([0.1, 0.2, 0.5, 1, 2], ["0.1", "0.2", "0.5", "1", "2"])
-    ax.set_xlabel("kinisi posterior std / D (%)")
-    ax.set_ylabel("s$_{seed}$ of kinisi D (%)")
-    handles = [common.handle(common.model_style(model, size=MARKER), _model_name(model))
+    for index, (ax, (kind, title, xlim, xticks, ylim, yticks)) in enumerate(zip(axes, G_PANELS)):
+        ax.axhline(crossover, color=style.BLACK, lw=0.6, ls=(0, (3, 2)), zorder=1)
+        part = scatter[scatter["run_type"] == kind]
+        for model in ("foundation", "mattersim", "ftG", "ftK"):
+            runs = part[part["model"] == model]
+            if len(runs):
+                ax.plot(runs["posterior_rel"] * 100.0, runs["s_seed"] * 100.0,
+                        **_series_style(runs["series"].iloc[0], style.MODEL_COLORS[model], G_MARKER), zorder=3)
+        ax.set_xscale("log")
+        ax.set_yscale("log")
+        ax.set_xlim(*xlim)
+        ax.set_ylim(*ylim)
+        style.log_ticks(ax, "x")
+        style.log_ticks(ax, "y")
+        ax.set_xticks(xticks, [f"{v:g}" for v in xticks])
+        ax.set_yticks(yticks, [f"{v:g}" for v in yticks])
+        ax.set_title(title, fontsize=style.FONT_SIZE, pad=2.5)
+        if index == 0:
+            ax.set_ylabel("s$_{seed}$ of kinisi D (%)")
+            ax.text(0.04, crossover * 1.07, f"{rule.KINISI_SEED_FACTOR:g} s$_{{seed}}$ = "
+                    f"{100 * rule.KINISI_D_FLOOR:g} %", transform=ax.get_yaxis_transform(), ha="left",
+                    va="bottom", fontsize=style.SMALL)
+    handles = [common.handle(common.model_style(model, size=G_MARKER), _model_name(model))
                for model in ("foundation", "mattersim", "ftG", "ftK")]
-    ax.legend(handles=handles, loc="lower right", fontsize=style.SMALL, handlelength=1.0, handletextpad=0.3,
-              labelspacing=0.3, borderaxespad=0.4)
+    axes[1].legend(handles=handles, loc="lower right", fontsize=style.SMALL, handlelength=1.0, handletextpad=0.3,
+                   labelspacing=0.3, borderaxespad=0.4)
+    rows = [{"run_id": row.run_id, "series": row.series, "model": row.model, "run_type": row.run_type,
+             "temperature_K": row.temperature_K, "kinisi_posterior_rel_std_percent": row.posterior_rel * 100.0,
+             "s_seed_percent": row.s_seed * 100.0, "n_seeds": row.n_seeds,
+             "rule_threshold_percent": max(rule.KINISI_SEED_FACTOR * row.s_seed, rule.KINISI_D_FLOOR) * 100.0}
+            for row in scatter.itertuples()]
     return style.save_source(pd.DataFrame(rows), NAME, "g")
 
 
@@ -455,20 +495,24 @@ def make() -> list[Path]:
            "Logged - re-evaluated force RMSE (meV/Å)", ha="center", va="top")
     ax_f = L.axes(F_LEFT, BOTTOM_TOP, F_WIDTH, BOTTOM_HEIGHT, row="bottom")
     sources.append(_panel_f(ax_f, thermostat))
-    ax_g = L.axes(G_LEFT, BOTTOM_TOP, G_WIDTH, BOTTOM_HEIGHT, row="bottom")
+    g_width = (STRIP_WIDTH - 2 * G_GAP) / 3
+    ax_g = [L.axes(LEFT + i * (g_width + G_GAP), G_TOP, g_width, G_HEIGHT, row="g",
+                   col="strip" if i == 0 else f"g{i}") for i in range(3)]
     sources.append(_panel_g(ax_g))
+    L.text(LEFT + STRIP_WIDTH / 2, G_TOP + G_HEIGHT + 4.4, "kinisi posterior std / D (%)", ha="center", va="top")
 
     for letter, ax, (top, _) in zip("abcd", (ax_a, ax_b, ax_c, ax_d), STRIPS):
         L.letter(ax, letter, 4.0, top - 4.0 if letter != "a" else 7.5)
     title_top = BOTTOM_TOP - 11.0
     L.letter(ax_e[0], "e", 4.0, title_top)
     L.letter(ax_f, "f", F_LEFT - 13.0, title_top)
-    L.letter(ax_g, "g", G_LEFT - 13.0, title_top)
     L.text(7.0, title_top - 0.4, "Force RMSE in the MACE training logs", ha="left", va="bottom")
-    L.text(F_LEFT - 10.0, title_top - 0.4, "Thermostat statistics\nagainst the July run logs", ha="left",
-           va="bottom", linespacing=1.1)
-    L.text(G_LEFT - 10.0, title_top - 0.4, "Seed scatter of kinisi D,\nall runs", ha="left", va="bottom",
-           linespacing=1.1)
+    L.text(F_LEFT - 10.0, title_top - 0.4, "Thermostat statistics against the July run logs", ha="left",
+           va="bottom")
+    g_title = G_TOP - 7.5
+    L.letter(ax_g[0], "g", 4.0, g_title)
+    L.text(7.0, g_title - 0.4, "Seed scatter of kinisi D against the width of its posterior, all runs by run type",
+           ha="left", va="bottom")
     return L.save(*registry.target(KEY)) + sources
 
 
@@ -513,13 +557,13 @@ def _caption() -> str:
     short = set(SERIES_BY_ID[s]["production_ps"] for s in failed["series"])
     reason = (f" are all from 52-atom, {short.pop()}-ps runs, where the logged fit also includes the starting frame "
               "that the trajectory does not store" if (failed["n_atoms"] == 52).all() and len(short) == 1 else "")
-    labels = {s["id"]: s["label"] for s in SERIES}
+    labels = {s["id"]: s["label"].replace("Fine-tuned", "fine-tuned") for s in SERIES}  # used mid-sentence
     n_new_logs = int((~checked["series"].isin(set(runs["series"]))).sum())
     scatter = _seed_table()
     crossover = rule.KINISI_D_FLOOR / rule.KINISI_SEED_FACTOR
     above = scatter[scatter["s_seed"] > crossover]
     above_52 = int((above["series"].map(_kind) == "cell_52").sum())
-    above_other = [f"{labels[r.series]} at {r.temperature_K} K" for r in above.itertuples()
+    above_other = [f"{labels[r.series]}, {r.temperature_K} K" for r in above.itertuples()
                    if _kind(r.series) != "cell_52"]
     above_text = f"{above_52} of the {int((scatter['series'].map(_kind) == 'cell_52').sum())} 52-atom runs" + (
         f" and {', '.join(above_other)}" if above_other else "")
@@ -545,22 +589,24 @@ def _caption() -> str:
         f"kinisi standard deviation (n = {len(runs)} runs each), with each run's threshold max(3 s_seed, "
         f"{rule.KINISI_D_FLOOR * 100:g} %) and max(3 s_seed, {rule.KINISI_STD_FLOOR * 100:g} %) (black bars), "
         f"where s_seed is the relative standard deviation over seeds 1-10 (n = 10; grey bars, 3 s_seed when below "
-        f"the floor; dashed line, the floor). {kinisi_text} "
-        f"The closest is {labels[worst_d['series']]} at {worst_d['temperature_K']} K in b "
+        f"the floor; dashed line, the floor); single values, no error bars. {kinisi_text} "
+        f"The closest is {labels[worst_d['series']]}, {worst_d['temperature_K']} K, in b "
         f"({worst_d['kinisi_D_rel_diff'] * 100:.3f} % against {threshold_d * 100:.3f} %, "
-        f"{kd.max():.4f} of the threshold) and {labels[worst_s['series']]} at {worst_s['temperature_K']} K in c "
+        f"{kd.max():.4f} of the threshold) and {labels[worst_s['series']]}, {worst_s['temperature_K']} K, in c "
         f"({ks.max():.3f} of the threshold); in c, 3 s_seed never exceeds {max_3s_std * 100:.3g} %, so the "
         f"{rule.KINISI_STD_FLOOR * 100:g} % floor sets every threshold. "
         f"**d**, The n = {len(fits)} Arrhenius fits (one per series, three temperatures each) re-done with the "
         "re-analysed values: |d ln sigma(300 K)| in units of the published log half-width of the 1-sigma interval "
-        "(black, left of each series) and |d Ea| in units of the published Ea error (grey, right). Light band, "
+        "(black, left of each series) and |d Ea| in units of the published Ea error (grey, right); single "
+        "values, no error bars. Light band, "
         f"R2-; darker band, R3. Solid line, the R2 limit ({rule.FIT_REPRODUCED:g}); dashed line, the R2- limit "
         f"({rule.FIT_CONSISTENT:g}). Classes: {classes}; the largest difference is {fit_worst:.3f} "
         f"({labels[fit_worst_series]}).{quoted} "
         f"**e**, Force RMSE written in the MACE training logs minus the same error re-evaluated from the model "
         f"files (meV/A), on the validation set (n = {n_valid} models) and on the training set (n = {n_train_logs}; "
-        "MACE-MP-0 has no training log), for the four fine-tuned models (colour, model; stage 1 open, stage 2 "
-        "filled) and the foundation model before fine-tuning (validation set of the Gamma fine-tune). Grey "
+        "MACE-MP-0 has no training log), for the four fine-tuned models (navy, Gamma labels; blue, 2x2x2 labels; "
+        "stage 1 open, stage 2 filled; the marker beside each row name repeats its style) and the foundation "
+        "model before fine-tuning (validation set of the Gamma fine-tune); single values, no error bars. Grey "
         f"bands, half the last printed digit. Validation errors agree to within {logs_valid:.3f} meV/A. The logged "
         f"training errors of the Gamma fine-tune (asterisks) cover {int(ftg_s1['train_evaluated_by_log'])} of its "
         f"{n_train_g} training configurations because MACE drops the last incomplete batch (protocol amendment A1); "
@@ -575,15 +621,16 @@ def _caption() -> str:
         f"{rule.THERMOSTAT_T_TOLERANCE_K[52]:g} K for 52 atoms for the mean temperature; one unit of the logged "
         f"rounding, {10.0 ** -rule.LOGGED_DECIMALS['mean_E_per_atom']:g} eV/atom and "
         f"{10.0 ** -rule.LOGGED_DECIMALS['drift_meV_atom_ps']:g} meV/atom/ps, for the mean energy and the drift; "
-        "runs spread horizontally at random within each column). "
+        "markers spread sideways within each column so that none overlap; single values, no error bars). "
         f"The mean temperature agrees in {t_ok} of {len(checked)} runs and the mean energy in {e_ok} of "
         f"{len(checked)}; the drift agrees in {d_ok} of {len(checked)}. The {len(failed)} drift values outside the "
-        f"tolerance ({', '.join(failed['run_id'])}; at most {failed['d_drift_meV_atom_ps'].abs().max():.4f} "
+        f"tolerance ({'; '.join(f'{labels[r.series]}, {r.temperature_K} K' for r in failed.itertuples())}; at most {failed['d_drift_meV_atom_ps'].abs().max():.4f} "
         f"meV/atom/ps){reason}; the check is reported as failed, as the rule states. "
         f"**g**, Monte-Carlo scatter of kinisi D, s_seed (relative standard deviation of D over seeds 1-10, n = 10 "
         f"per run; seed 0 is the primary value), against the relative width of the kinisi posterior (posterior "
-        f"standard deviation over D, seed 0), for all n = {len(scatter)} runs (colour, the model that drove the "
-        f"run). The rule accepts a kinisi D within max({rule.KINISI_SEED_FACTOR:g} s_seed, "
+        f"standard deviation over D, seed 0), for all n = {len(scatter)} runs, in one panel per run type with "
+        f"its own axis ranges (colour, the model that drove the run); single values, no error bars. The rule "
+        f"accepts a kinisi D within max({rule.KINISI_SEED_FACTOR:g} s_seed, "
         f"{100 * rule.KINISI_D_FLOOR:g} %); above the dashed line (s_seed = {100 * crossover:.3f} %, where "
         f"{rule.KINISI_SEED_FACTOR:g} s_seed = {100 * rule.KINISI_D_FLOOR:g} %) the seed term sets the threshold, "
         f"which is the case in {len(above)} of {len(scatter)} runs ({above_text}). s_seed is "
