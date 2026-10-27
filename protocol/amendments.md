@@ -106,3 +106,62 @@ written. Relative to AIMD, the kinisi D of the 416-atom runs was:
 
 At 600 K the AIMD Li MSD is almost flat in the fit window (log-log slope 0.07), so the 600 K
 ratio is not a ratio of diffusion coefficients.
+
+## A4 (2026-10-27): MatterSim against the DFT labels
+
+**Rule affected:** `analysis_plan.md`, Part B (the models evaluated against the DFT labels).
+
+**What was found.** Part B evaluated MACE-MP-0 and the four fine-tuned models only, so the universal
+potential whose Li diffusion is closest to AIMD (A3) had no force or energy comparison with DFT.
+
+**Change.**
+
+- MatterSim is evaluated on the 27 labelled configurations with the Part B measures, against both
+  label sets: force RMSE and MAE per element and subset, the softening slope, the centred energy error
+  (offset from T22, since its reference energies differ from those of the labels) and the pressure.
+- The model is the one the July MatterSim runs loaded (`mattersim-v1.0.0-1M`, named in their job
+  logs). Before any use, its identity is checked as for the fine-tuned models: forces recomputed on four
+  frames of each 416-atom MatterSim trajectory must match the stored forces within 1 meV/A (RMS).
+- MatterSim is evaluated in float32, the precision of its MD runs; the MACE models were evaluated in
+  float64. The installed package version and the checkpoint sha256 are recorded with the predictions.
+- MatterSim joins the softening-slope comparison of the transport figure as a fourth model.
+
+**Results seen before the change.** Yes: its Li diffusion relative to AIMD (A3) and all Part B results
+of the MACE models. No MatterSim prediction on the labelled configurations had been made.
+
+## A5 (2026-10-27): an MD run of the stage-two 2x2x2 fine-tune
+
+**Rules affected:** `analysis_plan.md`, Part C. Written and committed before the runs start.
+
+**What was found.** The two fine-tuned MD runs used models from different training stages (Gamma
+labels: stage two; 2x2x2 labels: stage one), so Part C could not separate the effect of the labels from
+that of the training stage.
+
+**Change.**
+
+- New series `ftK2_416_200`: the stage-two model of the 2x2x2 fine-tune
+  (`finetune/models/li6ps5cl_ft27k_stagetwo.model`, sha256
+  983b27a76b288633e56566a8a9d0dd6da237812a38fca13c7278c74c8217cf99) at 600, 800 and 1000 K.
+- Everything else as in the July fine-tuned runs:
+  - the MD driver `src/mlipft/simulation/md.py` (unchanged, tested against its July sha256);
+  - the 416-atom cell `data/structures/config0_sc222.cif`;
+  - Langevin NVT, time step 1 fs, friction 0.01 fs-1, random seed 0, Maxwell-Boltzmann start;
+  - 10 000 equilibration and 200 000 production steps, one frame every 50 steps;
+  - float32 on one NVIDIA A40 GPU, with the July container and package versions (recorded from the
+    job log).
+- Which model drove the runs is checked with force fingerprints, as for the July runs.
+- The trajectories are re-analysed exactly as in A2 (same cluster CPU environment and settings).
+- Readings fixed now:
+  1. **Labels at equal training stage (primary Part C reading from now on):**
+     f2 = ln(sigma_K2 / sigma_G2) / ln(sigma_foundation / sigma_G2), with the weighted re-analysis
+     fits, and the thresholds of `analysis_plan.md` (f2 < 0.25: not explained; f2 > 0.75: explains
+     most; otherwise partial; indistinguishable if abs(ln(sigma_K2 / sigma_G2)) is below its combined
+     1-sigma uncertainty).
+  2. **Training stage at equal labels (descriptive):** kinisi D of the stage-two run divided by that of
+     the stage-one run at each temperature, and the ratio of their sigma(300 K).
+  3. **Against AIMD:** the A3 ratios for the new series.
+- The pre-registered Part C reading with the stage-one run (f = -0.22, "not explained") stays reported
+  as such. If a new run fails the fingerprint or the thermostat checks, it is reported and not used.
+
+**Results seen before the change.** The stage-one run's results, and the force errors of both stage-two
+models (H3, against 2x2x2: Gamma 59.3, 2x2x2 57.1 meV/A). No MD with the stage-two 2x2x2 model exists.
