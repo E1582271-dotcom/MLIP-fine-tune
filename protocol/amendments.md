@@ -52,3 +52,57 @@ model ingest (`data/dft/`, `data/models/`) stays local; it enters different comp
 
 **Results seen before the change.** Yes: the run-level reproduction classes of 10 of the 26 local
 runs had been computed (pymatgen R1 and kinisi R2 for all 10).
+
+## A3 (2026-10-27): AIMD as the reference for Li transport
+
+**Rules affected:** `analysis_plan.md`, Part A (benchmark) and Part C (references). `reproduction_rule.md`
+is unchanged.
+
+**What was found.** The plan compared the universal potentials with experiment, and the fine-tuned
+models only with the foundation model, so no transport value was checked against DFT. Two facts make
+experiment the wrong yardstick:
+
+- Every run simulates the fully ordered S/Cl approximant (Cl on 4a, S on 4c), whereas the measured
+  conductivities are of S/Cl-disordered polycrystals. In AIMD the two differ by about two orders of
+  magnitude (Baktash et al. 2020).
+- Published AIMD extrapolations of ordered Li6PS5Cl to 300 K span 2e-6 to 0.29 S/cm (Table 2 of
+  Baktash et al. 2020), so an extrapolated value is not a usable reference either.
+
+**Change.**
+
+- The transport reference for every model, universal or fine-tuned, is AIMD of the same ordered
+  structure: the Li6PS5Cl trajectories of Deng et al. (2017), published with the paper's notebooks
+  (materialsvirtuallab/matgenb, commit 2e77d515f23c507887856c265cdab84fa1a30082, BSD-3-Clause).
+  - From the files: VASP, 52 atoms, a = 10.10 A, time step 2 fs, every 10th step stored, 100 ps at
+    each of 600, 800, 1000 and 1200 K.
+  - The exchange-correlation functional and thermostat are not recorded in the files.
+- The comparison is D at the simulated temperatures 600, 800 and 1000 K, without extrapolation:
+  - the ratio of the kinisi D (seed 0, fit from 30 % of the run) of each MLIP run to that of AIMD,
+    with the two relative standard deviations added in quadrature;
+  - the pymatgen D ratio and the log-log slope of the Li MSD in the fit window are reported with it.
+- The AIMD trajectories are analysed with the estimators and settings of the MLIP runs. The only
+  differences are their own time step and stored-frame interval.
+- The analysis runs on the workstation (macOS, arm64) with the ingest environment, not on the
+  cluster node of A2. The platform check of A2 bounds the difference at 0.9 % in kinisi D, far below
+  the ratios compared here.
+- Known differences between the AIMD and the MLIP runs, stated with every result:
+  - lattice parameter 10.10 A against 10.28 A (5 % smaller volume);
+  - 52 atoms against 416 atoms for the production runs (the 52-atom MLIP runs match the AIMD cell);
+  - one trajectory per temperature in both.
+- Experimental values stay only as context for the universal potentials. They are no longer a
+  headline comparison, and the fine-tuned models are still never compared with experiment.
+- The Part C reading f is unchanged and still reported.
+
+**Results seen before the change.** Yes. All MLIP results were known. The AIMD values were first
+computed in a scratch analysis on 2026-10-27, with the settings stated here, before this entry was
+written. Relative to AIMD, the kinisi D of the 416-atom runs was:
+
+| Model | 600 K | 800 K | 1000 K |
+|---|---|---|---|
+| MACE-MP-0 | 8.8x | 5.1x | 3.2x |
+| MatterSim | 1.8x | 1.9x | 1.9x |
+| Fine-tuned on Gamma-point labels | 1.4x | 2.1x | 1.8x |
+| Fine-tuned on 2x2x2 labels | 1.4x | 2.6x | 1.9x |
+
+At 600 K the AIMD Li MSD is almost flat in the fit window (log-log slope 0.07), so the 600 K
+ratio is not a ratio of diffusion coefficients.
