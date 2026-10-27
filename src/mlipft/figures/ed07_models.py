@@ -18,9 +18,11 @@ from matplotlib.patches import Rectangle
 
 from .. import paths
 from ..ingest.models import FINGERPRINT_RATIO, FINGERPRINT_MATCH_meV_A
-from . import common, style
+from . import common, registry, style
 
-NAME = "ed07"
+KEY = "models"
+NAME = registry.number(KEY)
+PANELS = "abcd"
 WIDTH, HEIGHT = 183.0, 140.0
 FINGERPRINTS = paths.MODELS / "fingerprints.csv"
 CROSS = paths.RESULTS / "cross_evaluation.csv"
@@ -231,7 +233,7 @@ def make() -> list[Path]:
     L.letter(ax_c, "c", 127.0, 13.0)
     L.letter(ax_b, "b", 3.0, 74.0)
     L.letter(ax_d, "d", 127.0, 74.0)
-    return style.save(fig, "ed07_models", "extended")
+    return L.save(*registry.target(KEY))
 
 
 def _caption() -> str:
@@ -254,8 +256,8 @@ def _caption() -> str:
     tuned_mean = pk.drop("foundation")
     pfloor = floor.loc[(floor["subset"] == "All27") & (floor["element"] == "all"), "pressure_rmse_kbar"].iloc[0]
     return (
-        "Extended Data Fig. 7 | Model identity and the full cross-evaluation. "
-        f"**a**, Force fingerprints of the 416-atom, 200-ps MD runs at 600, 800 and 1000 K: RMS difference between "
+        registry.heading(KEY)
+        + f"**a**, Force fingerprints of the 416-atom, 200-ps MD runs at 600, 800 and 1000 K: RMS difference between "
         f"the forces stored in four frames of each run (first, one third, two thirds, last) and the forces of each "
         f"candidate model recomputed in float32 on a CPU (logarithmic axis). A run is assigned to a model if the "
         f"residual is below {FINGERPRINT_MATCH_meV_A:g} meV/A (dashed line) and every other candidate is at least "

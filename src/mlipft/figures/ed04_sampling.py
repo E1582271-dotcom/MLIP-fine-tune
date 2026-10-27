@@ -20,9 +20,11 @@ from matplotlib.ticker import FixedLocator, NullFormatter
 from .. import constants as C
 from .. import paths
 from ..transport import reproduction as R
-from . import common, style
+from . import common, registry, style
 
-NAME = "ed04"
+KEY = "sampling"
+NAME = registry.number(KEY)
+PANELS = "abcdef"
 WIDTH, HEIGHT = 183.0, 172.0
 TRANSPORT = paths.MD / "transport.csv"
 SEEDS = paths.MD / "kinisi_seeds.csv"
@@ -357,7 +359,7 @@ def make() -> list[Path]:
     L.letter(ax_d, "d", 124.0, 58.0)
     L.letter(ax_e[0], "e", 3.0, 110.0)
     L.letter(ax_f, "f", 124.0, 110.0)
-    return style.save(fig, "ed04_sampling", "extended")
+    return L.save(*registry.target(KEY))
 
 
 def _caption() -> str:
@@ -394,8 +396,8 @@ def _caption() -> str:
     above = int((scatter["s_seed"] > crossover).sum())
     share = scatter["s_seed"] / posterior
     return (
-        "Extended Data Fig. 4 | Sampling and estimator checks. "
-        f"**a**, Root-mean-square difference of the atomic positions between two runs with the same potential, "
+        registry.heading(KEY)
+        + f"**a**, Root-mean-square difference of the atomic positions between two runs with the same potential, "
         f"cell and temperature, against production time: the 52-atom runs of 50, 100 and 150 ps of each universal "
         f"potential (three pairs per potential and temperature) and the 416-atom, 200-ps MACE-MP-0 production run "
         f"against the 416-atom Cl-excess x = 0 run (thick lines). Positions are stored at frames 0, 1, 2, 5, 10, "

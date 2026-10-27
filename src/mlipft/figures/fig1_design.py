@@ -23,9 +23,11 @@ from matplotlib.patches import FancyArrowPatch, FancyBboxPatch, Rectangle
 
 from .. import io, paths
 from ..constants import SERIES, TEMPERATURES, run_id
-from . import common, style
+from . import common, registry, style
 
-NAME = "fig1"
+KEY = "design"
+NAME = registry.number(KEY)
+PANELS = "abc"
 WIDTH, HEIGHT = 183.0, 147.0
 STRUCTURE = paths.STRUCTURES / "config0.cif"
 CONFIGS = paths.DFT / "configs.csv"
@@ -533,7 +535,7 @@ def make() -> list[Path]:
     L.letter(ax_a, "a", 3.0, 6.0)
     L.letter(ax_b, "b", 61.0, 6.0)
     L.letter(ax_c, "c", 3.0, c_top - 1.0)
-    return style.save(fig, "fig1_design", "main") + sources
+    return L.save(*registry.target(KEY)) + sources
 
 
 def _caption() -> str:
@@ -560,8 +562,8 @@ def _caption() -> str:
     volume_ratio = (ref["a"] / cell["a"]) ** 3
     md_t = ", ".join(str(t) for t in TEMPERATURES[:-1]) + f" and {TEMPERATURES[-1]} K"
     return (
-        "Fig. 1 | Study design, model system and data. "
-        f"**a**, The 52-atom cell of every Li6PS5Cl run (Li{counts['Li']}P{counts['P']}S{counts['S']}Cl{counts['Cl']}, "
+        registry.heading(KEY)
+        + f"**a**, The 52-atom cell of every Li6PS5Cl run (Li{counts['Li']}P{counts['P']}S{counts['S']}Cl{counts['Cl']}, "
         f"cubic, a = {cell['a']:.4f} A; the lowest-Ewald-energy S/Cl ordering of the Materials Project cell), in an "
         f"oblique orthographic projection, farther atoms lighter. The S/Cl arrangement is fully ordered, Cl on "
         f"{sites['Cl']} and the free S on {sites['free S']}; the AIMD reference simulates the same arrangement. "

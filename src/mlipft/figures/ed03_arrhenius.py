@@ -19,9 +19,10 @@ from matplotlib.patches import Patch
 
 from .. import paths
 from ..constants import T_REF_K, TEMPERATURES
-from . import common, style
+from . import common, registry, style
 
-NAME = "ed03"
+KEY = "arrhenius"
+NAME = registry.number(KEY)
 WIDTH, HEIGHT = 183.0, 236.0
 FITS = paths.RESULTS / "fits.csv"
 TRANSPORT = paths.MD / "transport.csv"
@@ -40,11 +41,6 @@ TITLES = {"foundation": "MACE-MP-0", "mattersim": "MatterSim", "ftG": "Fine-tune
 X_LIMITS = (0.85, 3.55)
 Y_LIMITS = (0.08, 2.0e4)
 Z_LIMIT = 3.6
-
-
-def _sig3(value: float) -> str:
-    """Three significant figures, keeping trailing zeros (0.260, 2.44, 213)."""
-    return f"{value:.{max(0, 2 - int(np.floor(np.log10(abs(value)))))}f}"
 
 
 def _load() -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -125,8 +121,8 @@ def _panel(ax, res_ax, fit: pd.Series, points: pd.DataFrame, first_column: bool)
     ax.tick_params(labelbottom=False, labelleft=first_column)
     if first_column:
         ax.set_ylabel(r"$\sigma$ (mS cm$^{-1}$)", labelpad=1.5)
-    ax.text(0.04, 0.04, f"$\\sigma$(300 K) {_sig3(fit['sigma300_mS_cm'])}\n"
-                        f"[{_sig3(fit['sigma300_min_mS_cm'])}, {_sig3(fit['sigma300_max_mS_cm'])}] mS cm$^{{-1}}$\n"
+    ax.text(0.04, 0.04, f"$\\sigma$(300 K) {common.sig(fit['sigma300_mS_cm'])}\n"
+                        f"[{common.sig(fit['sigma300_min_mS_cm'])}, {common.sig(fit['sigma300_max_mS_cm'])}] mS cm$^{{-1}}$\n"
                         f"$E_a$ {fit['Ea_eV']:.3f} $\\pm$ {fit['Ea_err_eV']:.3f} eV\n{SOURCE_TEXT[fit['source']]}",
             transform=ax.transAxes, ha="left", va="bottom", fontsize=style.SMALL, linespacing=1.3)
 
@@ -185,7 +181,7 @@ def make() -> list[Path]:
         if len(row) < 4:
             _key(L.axes(left + len(row) * (width + gap) + 6.0, panel_top, 2 * width, main_h + res_gap + res_h))
         top = panel_top + main_h + res_gap + res_h + row_gap
-    return style.save(fig, "ed03_arrhenius", "extended") + written
+    return L.save(*registry.target(KEY)) + written
 
 
 def _key(ax) -> None:
@@ -227,8 +223,8 @@ def _caption() -> str:
     reanalysed = [fits.loc[s, "label"] for s in order if fits.loc[s, "source"] == "reanalysis"]
     letters = "abcdefghijklmn"
     return (
-        "Extended Data Fig. 3 | Arrhenius fits of every series. "
-        f"**a-{letters[len(order) - 1]}**, One panel per MD series, grouped by part: **a-h**, the universal potentials on "
+        registry.heading(KEY)
+        + f"**a-{letters[len(order) - 1]}**, One panel per MD series, grouped by part: **a-h**, the universal potentials on "
         "Li6PS5Cl (part A; MACE-MP-0 top row, MatterSim second row; 52-atom cells run for 50, 100 and 150 ps, which "
         "are independent trajectories, and the 416-atom, 200-ps production runs); **i**, **j**, the two fine-tuned models "
         "under the production protocol (part C); **k-n**, the Cl-excess series Li(6-x)PS(5-x)Cl(1+x) under MACE-MP-0 "

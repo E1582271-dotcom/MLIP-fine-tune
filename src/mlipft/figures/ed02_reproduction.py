@@ -20,9 +20,11 @@ from matplotlib.patches import Rectangle
 from .. import paths
 from ..constants import SERIES, SERIES_BY_ID, TEMPERATURES
 from ..transport import reproduction as rule
-from . import common, style
+from . import common, registry, style
 
-NAME = "ed02"
+KEY = "reproduction"
+NAME = registry.number(KEY)
+PANELS = "abcdef"
 WIDTH, HEIGHT = 183.0, 156.0
 RUNS = paths.RESULTS / "reproduction_runs.csv"
 FITS = paths.RESULTS / "reproduction_fits.csv"
@@ -98,12 +100,6 @@ def _frame_runs(ax, series: list[dict], labels: bool) -> None:
                     arrowprops={"arrowstyle": "-", "lw": 0.5, "color": "black", "shrinkA": 0, "shrinkB": 0})
         ax.text((x0 + x1) / 2.0, -0.40, PART_TEXT[part], transform=blend, ha="center", va="top",
                 fontsize=style.SMALL)
-
-
-def _sci(value: float) -> str:
-    """1e-09 -> '1e-9' (caption text)."""
-    mantissa, exponent = f"{value:.0e}".split("e")
-    return f"{mantissa}e{int(exponent)}"
 
 
 def _title(ax, text: str) -> None:
@@ -378,7 +374,7 @@ def make() -> list[Path]:
     L.letter(ax_f, "f", 108.0, 117.0)
     L.text(6.0, 116.6, "Force RMSE in the MACE training logs", ha="left", va="bottom")
     L.text(111.0, 116.6, "Thermostat statistics against the July run logs", ha="left", va="bottom")
-    return style.save(fig, "ed02_reproduction", "extended") + sources
+    return L.save(*registry.target(KEY)) + sources
 
 
 def _caption() -> str:
@@ -425,15 +421,15 @@ def _caption() -> str:
     labels = {s["id"]: s["label"] for s in SERIES}
     n_new_logs = int((~checked["series"].isin(set(runs["series"]))).sum())
     return (
-        "Extended Data Fig. 2 | Re-analysis against the values published in July 2026. The comparison follows a "
+        registry.heading(KEY) + "The comparison follows a "
         "rule committed before any trajectory was re-analysed (protocol/reproduction_rule.md), applied to the "
         f"{len(runs)} published runs of {len(series)} series (x axis of a-d: series in the order of Fig. 1c, three "
         "runs each at 600, 800 and 1000 K, coloured by temperature). "
         f"**a**, Relative difference between the re-analysed and the published pymatgen D of each run. In "
-        f"{n_zero} runs the two are bit-identical (open circles, drawn at {_sci(ZERO_FLOOR)}); the others differ by "
+        f"{n_zero} runs the two are bit-identical (open circles, drawn at {common.sci(ZERO_FLOOR, 1)}); the others differ by "
         f"{nonzero.min():.2g}-{nonzero.max():.2g}, a few float64 rounding steps (dotted line, machine epsilon "
-        f"{FLOAT64_EPS:.3g}). Solid line, the R1 limit ({_sci(rule.PYMATGEN_EXACT)}); dashed line, the R2 limit "
-        f"({_sci(rule.PYMATGEN_REPRODUCED)}). Classes: {pymatgen_classes} for every run in D and in sigma. "
+        f"{FLOAT64_EPS:.3g}). Solid line, the R1 limit ({common.sci(rule.PYMATGEN_EXACT, 1)}); dashed line, the R2 limit "
+        f"({common.sci(rule.PYMATGEN_REPRODUCED, 1)}). Classes: {pymatgen_classes} for every run in D and in sigma. "
         f"**b**, Relative difference of the kinisi D (seed 0 here, an unseeded sampler in July) and **c**, of its "
         f"kinisi standard deviation, with each run's threshold max(3 s_seed, {rule.KINISI_D_FLOOR * 100:g} %) and "
         f"max(3 s_seed, {rule.KINISI_STD_FLOOR * 100:g} %) (black bars), where s_seed is the relative scatter of "

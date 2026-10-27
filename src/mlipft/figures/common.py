@@ -1,32 +1,46 @@
-"""Helpers shared by the figure modules: reading tables, millimetre layout, model and configuration styling.
+"""Helpers shared by the figure modules: tables, millimetre layout, the encoding helpers, number formats.
 
-Layout is in millimetres from the top-left corner of the figure, so panels in the same row or column
-share their frame edges exactly. Model order and styling follow ``style``: colour by fine-tune
-(foundation blue, Gamma labels vermillion, 2x2x2 labels green), stage two filled and stage one open.
-The primary models (those that drove the MD runs) come from the ``drove_md`` column of the
-cross-evaluation table, not from this file.
+Layout is in millimetres from the top-left corner of the figure. ``Layout.axes(..., row=, col=)``
+tags every framed panel so that ``qa.alignment`` can verify that panels in the same row share their
+top and bottom frame edges and panels in the same column their left edge; ``Layout.save`` runs the
+QA checks and writes the figure.
+
+Every marker of a model, of AIMD or of a measured value is drawn through ``model_style`` /
+``model_scatter`` / ``aimd_style`` / ``context_style``, which apply the vocabulary of ``style``:
+colour by model, fill by training stage, shape by run type. The models that drove the MD runs come
+from the ``drove_md`` column of the cross-evaluation table (``primary_models``, ``md_models``), not
+from this file.
 """
 from __future__ import annotations
 
+import math
 import re
 from collections.abc import Iterable
 from pathlib import Path
+from typing import NamedTuple
 
 import numpy as np
 import pandas as pd
 from matplotlib import transforms
 from matplotlib.colors import to_hex, to_rgb
+from matplotlib.lines import Line2D
 
 from .. import paths
-from . import style
+from ..constants import TEMPERATURES
+from . import qa, style
 
 MODEL_ORDER = ("foundation", "ftG_s2", "ftK_s1", "ftG_s1", "ftK_s2")
 SHORT_LABELS = {"foundation": "MACE-MP-0", "ftG_s1": "Gamma, stage 1", "ftG_s2": "Gamma, stage 2",
                 "ftK_s1": "2x2x2, stage 1", "ftK_s2": "2x2x2, stage 2"}
 LABEL_SET_NAMES = {"gamma": "Gamma", "k222": "2x2x2"}
 ELEMENTS = ("Li", "P", "S", "Cl")
-SECONDARY_FADE = 0.55  # secondary models are drawn in their colour mixed with this much white
+RUN_FAMILIES = ("foundation", "ftG", "ftK")  # MD runs of MACE-MP-0 and of the two fine-tunes
+CAGED_SLOPE = 0.25  # AIMD Li MSD log-log slope in the fit window below which the Li ions are caged
+MARKER_SIZE = 3.4  # default marker diameter (pt) of the style helpers
 _CONFIG = re.compile(r"T(\d+)_f(\d+)")
+
+
+# --------------------------------------------------------------------------------------- tables
 
 
 def read(path: Path | str, **kwargs) -> pd.DataFrame:
@@ -69,11 +83,106 @@ def primary_models(cross: pd.DataFrame) -> list[str]:
     return [model for model in MODEL_ORDER if model in drove]
 
 
+def md_models(cross: pd.DataFrame) -> dict[str, str]:
+    """Run family -> id of the model that drove its MD run, from the ``drove_md`` column.
+
+    For the committed tables: ``{"foundation": "foundation", "ftG": "ftG_s2", "ftK": "ftK_s1"}``.
+    """
+    drove = cross.loc[cross["drove_md"].fillna("").astype(str) != "", "model"].unique()
+    out: dict[str, str] = {}
+    for model in drove:
+        family = str(model).split("_")[0]
+        if out.get(family, model) != model:
+            raise ValueError(f"two models drove the {family} runs: {out[family]} and {model}")
+        out[family] = str(model)
+    if set(out) != set(RUN_FAMILIES):
+        raise ValueError(f"expected one MD model per run family {RUN_FAMILIES}, got {sorted(out)}")
+    return {family: out[family] for family in RUN_FAMILIES}
+
+
+def caged_temperatures(aimd: pd.DataFrame, threshold: float = CAGED_SLOPE) -> tuple[int, ...]:
+    """AIMD temperatures (ascending) at which the Li MSD is almost flat in the fit window (log-log slope below
+    ``threshold``): there the AIMD D measures caged motion, not diffusion."""
+    caged = aimd.loc[aimd["msd_loglog_slope_fit_window"] < threshold, "temperature_K"].astype(int)
+    return tuple(sorted(set(caged)))
+
+
+# ------------------------------------------------------------------------------ encoding helpers
+
+
 def filled(model: str) -> bool:
-    """Stage two filled, stage one open; the foundation is filled."""
-    if model == "foundation":
+    """Whether the model's markers are filled: universal potentials and stage two filled, stage one open.
+
+    Accepts model ids (``ftG_s1``) and run families (``ftG``, ``ftK``: the stage in ``style.MD_STAGE``).
+    """
+    if model in style.UNIVERSAL_MODELS:
         return True
-    return style.STAGE_FILLED[model.split("_")[1]]
+    family, _, stage = model.partition("_")
+    return style.STAGE_FILLED[stage or style.MD_STAGE[family]]
+
+
+def model_style(model: str, kind: str = "production", size: float = MARKER_SIZE, edge: float = 0.7,
+                **overrides) -> dict:
+    """``ax.plot`` keyword arguments for one model's markers.
+
+    ``model``: a key of ``style.MODEL_COLORS`` (foundation, mattersim, ftG, ftK, ftG_s1, ...). ``kind``: the
+    run type, a key of ``style.RUN_MARKERS`` (production circle, cell_52 triangle, clexcess inverted
+    triangle). ``size``: marker diameter in pt; ``edge``: edge width in pt. Filled or white face by stage
+    (``filled``). ``overrides`` (zorder, label, linestyle, ...) are applied last.
+    """
+    color = style.MODEL_COLORS[model]
+    kwargs = {"color": color, "marker": style.RUN_MARKERS[kind], "markersize": size, "markeredgewidth": edge,
+              "markeredgecolor": color, "markerfacecolor": color if filled(model) else style.WHITE,
+              "linestyle": "none"}
+    kwargs.update(overrides)
+    return kwargs
+
+
+def aimd_style(size: float = MARKER_SIZE, edge: float = 0.7, **overrides) -> dict:
+    """``ax.plot`` keyword arguments for AIMD: a filled black square, the same in every figure."""
+    kwargs = {"color": style.AIMD_COLOR, "marker": style.AIMD_MARKER, "markersize": size, "markeredgewidth": edge,
+              "markeredgecolor": style.AIMD_COLOR, "markerfacecolor": style.AIMD_COLOR, "linestyle": "none"}
+    kwargs.update(overrides)
+    return kwargs
+
+
+def context_style(size: float = MARKER_SIZE, edge: float = 0.5, **overrides) -> dict:
+    """``ax.plot`` keyword arguments for a measured value (context only, Extended Data only): light-grey diamond.
+
+    Name such marks in ``style.CONTEXT_TEXT``; never draw them in a panel that shows a fine-tuned model.
+    """
+    kwargs = {"color": style.CONTEXT_COLOR, "marker": style.MEASURED_MARKER, "markersize": size,
+              "markeredgewidth": edge, "markeredgecolor": style.CONTEXT_COLOR, "markerfacecolor": style.CONTEXT_COLOR,
+              "linestyle": "none"}
+    kwargs.update(overrides)
+    return kwargs
+
+
+def to_scatter(plot_kwargs: dict) -> dict:
+    """Convert keyword arguments of the ``*_style`` helpers from ``ax.plot`` to ``ax.scatter`` (same look).
+
+    The marker diameter ``markersize`` (pt) becomes the area ``s`` (pt^2); other keys such as ``zorder``,
+    ``alpha``, ``label`` or ``clip_on`` pass through.
+    """
+    kwargs = dict(plot_kwargs)
+    out = {"marker": kwargs.pop("marker", style.MLIP_MARKER), "s": kwargs.pop("markersize", MARKER_SIZE) ** 2,
+           "facecolors": kwargs.pop("markerfacecolor", None), "edgecolors": kwargs.pop("markeredgecolor", None),
+           "linewidths": kwargs.pop("markeredgewidth", 0.7)}
+    for key in ("color", "linestyle", "ls"):
+        kwargs.pop(key, None)
+    out.update(kwargs)
+    return out
+
+
+def model_scatter(model: str, kind: str = "production", size: float = MARKER_SIZE, edge: float = 0.7,
+                  **overrides) -> dict:
+    """``ax.scatter`` keyword arguments for one model's markers; the same look as ``model_style``."""
+    return to_scatter(model_style(model, kind, size, edge, **overrides))
+
+
+def handle(plot_kwargs: dict, label: str) -> Line2D:
+    """A legend handle drawn with keyword arguments of the ``*_style`` helpers."""
+    return Line2D([0], [0], label=label, **plot_kwargs)
 
 
 def lighten(color: str, amount: float) -> str:
@@ -82,24 +191,64 @@ def lighten(color: str, amount: float) -> str:
     return to_hex(rgb + (1.0 - rgb) * amount)
 
 
-def model_color(model: str, faded: bool = False) -> str:
-    color = style.MODEL_COLORS[model]
-    return lighten(color, SECONDARY_FADE) if faded else color
+# ------------------------------------------------------------------------- annotations, numbers
 
 
-def marker_kwargs(model: str, marker: str = "o", size: float = 3.5, edge: float = 0.7, alpha: float = 1.0,
-                  faded: bool = False) -> dict:
-    """Keyword arguments for ``ax.plot`` drawing one model's marker (``faded``: secondary model)."""
-    color = model_color(model, faded)
-    return {"marker": marker, "markersize": size, "markeredgewidth": edge, "markeredgecolor": color,
-            "markerfacecolor": color if filled(model) else "white", "linestyle": "none", "alpha": alpha}
+def temperature_labels(ax, temperatures: Iterable[int] = TEMPERATURES, y: float = 0.97, scale: float = 1000.0,
+                       **kwargs) -> list:
+    """Write "600 K", "800 K", ... inside the frame above the data columns of a ``scale``/T axis.
+
+    Replaces the forbidden secondary top axis of Arrhenius plots. ``y`` is in axes coordinates (top of the
+    text); call after the x limits are final: temperatures outside them are skipped. Returns the texts.
+    """
+    kwargs = {"ha": "center", "va": "top", "fontsize": style.SMALL, "color": style.CONTEXT_TEXT, **kwargs}
+    low, high = sorted(ax.get_xlim())
+    texts = []
+    for temperature in temperatures:
+        x = scale / float(temperature)
+        if low <= x <= high:
+            texts.append(ax.text(x, y, f"{temperature:g} K", transform=ax.get_xaxis_transform(), **kwargs))
+    return texts
 
 
-def scatter_kwargs(model: str, size: float = 9.0, edge: float = 0.6, alpha: float = 1.0, faded: bool = False) -> dict:
-    """Keyword arguments for ``ax.scatter`` drawing one model's marker (``size`` in pt^2)."""
-    color = model_color(model, faded)
-    return {"s": size, "linewidths": edge, "edgecolors": color, "facecolors": color if filled(model) else "white",
-            "alpha": alpha}
+def sig(value: float, digits: int = 3) -> str:
+    """``value`` to ``digits`` significant figures, keeping trailing zeros: 0.260, 2.44, 213, 5.55, 10.0."""
+    value = float(value)
+    if value == 0 or not math.isfinite(value):
+        return f"{value:g}"
+    rounded = float(f"{value:.{digits}g}")
+    decimals = max(digits - 1 - math.floor(math.log10(abs(rounded))), 0)
+    return f"{rounded:.{decimals}f}"
+
+
+def sci(value: float, digits: int = 2) -> str:
+    """``value`` in ASCII scientific notation with ``digits`` significant figures: 1.7e-5, 3.0e8."""
+    value = float(value)
+    if value == 0 or not math.isfinite(value):
+        return f"{value:g}"
+    mantissa, exponent = f"{value:.{digits - 1}e}".split("e")
+    return f"{mantissa}e{int(exponent)}"
+
+
+def allow_overlap(*artists):
+    """Mark artists (or containers, lists of artists) as deliberate overlaps that QA must not report.
+
+    An exempt text is skipped by every overlap check; an exempt line, collection or bar is skipped as data
+    (text-over-data and clipping checks); an exempt Axes has no text-over-data or clipping checks. Use
+    sparingly, for example for a label written on purpose on top of the line it names. Returns the first
+    argument, so ``allow_overlap(ax.text(...))`` chains.
+    """
+    for artist in artists:
+        if artist is None:
+            continue
+        if isinstance(artist, (list, tuple)):  # lists, tuples and matplotlib containers (errorbar, bar)
+            allow_overlap(*artist)
+        else:
+            qa.EXEMPT.add(artist)
+    return artists[0] if artists else None
+
+
+# --------------------------------------------------------------------------- configuration axes
 
 
 def jitter(n: int, width: float, seed: int) -> np.ndarray:
@@ -131,7 +280,7 @@ def config_axis(ax, configs: pd.DataFrame, x: np.ndarray, labels: bool = True) -
     temperatures = configs["temperature_K"].to_numpy()
     for temperature in sorted(set(temperatures)):
         group = x[temperatures == temperature]
-        ax.plot([group[0] - 0.3, group[-1] + 0.3], [0, 0], color="black", lw=0.5, transform=line, clip_on=False)
+        ax.plot([group[0] - 0.3, group[-1] + 0.3], [0, 0], color=style.BLACK, lw=0.5, transform=line, clip_on=False)
         ax.text(group.mean(), 0, f"Source temperature {temperature} K", transform=text, ha="center", va="top",
                 fontsize=style.FONT_SIZE)
 
@@ -145,33 +294,82 @@ def subset_bands(ax, configs: pd.DataFrame, x: np.ndarray, labels: bool = True) 
                    alpha=0.18 if subset == "H3" else 0.12, lw=0, zorder=0)
         if labels:
             ax.text(position, 1.0, subset, transform=ax.get_xaxis_transform(), ha="center", va="bottom",
-                    fontsize=style.SMALL, color="black" if subset == "H3" else style.GREY)
+                    fontsize=style.SMALL, color=style.BLACK if subset == "H3" else style.GRAY)
+
+
+# --------------------------------------------------------------------------------------- layout
+
+
+class AxesRecord(NamedTuple):
+    ax: object
+    row: str | None
+    col: str | None
+    frame: str  # "closed" or "none"
+    box_mm: tuple[float, float, float, float]  # requested (left, top, width, height)
 
 
 class Layout:
-    """Axes and panel letters placed in millimetres from the top-left corner of a figure."""
+    """Axes and panel letters placed in millimetres from the top-left corner of a figure.
+
+    ``records`` lists every axes made by ``axes`` with its row/column tags; after ``save`` (or
+    ``qa.gate``), ``name`` and ``findings`` hold the figure name and its QA findings.
+    """
 
     def __init__(self, fig, width_mm: float, height_mm: float):
         self.fig, self.width, self.height = fig, width_mm, height_mm
+        self.records: list[AxesRecord] = []
+        self.name: str | None = None
+        self.findings: list | None = None
+        fig._mlipft_layout = self
+        qa.track(self)
 
-    def axes(self, left: float, top: float, width: float, height: float, **kwargs):
-        return self.fig.add_axes((left / self.width, 1.0 - (top + height) / self.height, width / self.width,
-                                  height / self.height), **kwargs)
+    def axes(self, left: float, top: float, width: float, height: float, *, row: str | None = None,
+             col: str | None = None, frame: str = "closed", **kwargs):
+        """Axes whose frame spans ``width`` x ``height`` mm with its top-left corner at (``left``, ``top``) mm.
+
+        ``row``: tag shared by panels whose top and bottom frame edges must align (required for every framed
+        axes); ``col``: tag shared by panels whose left frame edges must align. ``frame="none"`` makes a
+        frameless axes (schematic, heatmap, table; see ``frameless``). Other keyword arguments go to
+        ``fig.add_axes``.
+        """
+        if frame not in ("closed", "none"):
+            raise ValueError(f"frame must be 'closed' or 'none', not {frame!r}")
+        ax = self.fig.add_axes((left / self.width, 1.0 - (top + height) / self.height, width / self.width,
+                                height / self.height), **kwargs)
+        if frame == "none":
+            frameless(ax)
+        self.records.append(AxesRecord(ax, None if row is None else str(row), None if col is None else str(col),
+                                       frame, (left, top, width, height)))
+        return ax
 
     def x(self, mm: float) -> float:
+        """Figure fraction of a distance ``mm`` from the left edge."""
         return mm / self.width
 
     def y(self, mm: float) -> float:
         """Figure fraction of a distance ``mm`` from the top edge."""
         return 1.0 - mm / self.height
 
-    def letter(self, ax, letter: str, left: float, top: float) -> None:
-        """Panel letter whose right edge is at ``left`` mm and whose bottom is at ``top`` mm."""
-        style.panel_label(ax, letter, x=self.x(left), y=self.y(top), transform=self.fig.transFigure)
+    def letter(self, ax, letter: str, left: float, top: float):
+        """Panel letter whose right edge is at ``left`` mm and whose bottom is at ``top`` mm; returns the text."""
+        return style.panel_label(ax, letter, x=self.x(left), y=self.y(top), transform=self.fig.transFigure)
 
     def text(self, left: float, top: float, text: str, **kwargs):
         kwargs.setdefault("fontsize", style.FONT_SIZE)
         return self.fig.text(self.x(left), self.y(top), text, **kwargs)
+
+    def save(self, name: str, folder: str = "main", strict: bool | None = None) -> list[Path]:
+        """Check the figure (``qa.check``), write it (``style.save``), then report through ``qa.gate``.
+
+        ``name, folder = registry.target(KEY)``. The checks run on the live figure before it is written;
+        the strict-mode error is raised after writing, so that a failing figure can still be inspected
+        (and crop-audited when the build asks for it). Returns the written paths.
+        """
+        findings = qa.check(self, name) if qa.mode(strict) != "off" else []
+        written = style.save(self.fig, name, folder)
+        png = next((path for path in written if path.suffix == ".png"), None)
+        qa.gate(self, strict, name=name, png=png, findings=findings)
+        return written
 
 
 def new_figure(width_mm: float, height_mm: float):
@@ -180,7 +378,40 @@ def new_figure(width_mm: float, height_mm: float):
     return fig, Layout(fig, width_mm, height_mm)
 
 
-def no_frame(ax) -> None:
-    """Hide all four spines (heatmaps, tables and grids drawn on their own)."""
+def frameless(ax):
+    """Draw ``ax`` without a frame (schematics, heatmaps, tables): hide all spines and tick marks.
+
+    Tick labels stay available as row and column names (``ax.set_xticks([])`` drops them). The axes is
+    registered so that QA skips its frame and alignment checks and does not check its text against its
+    own drawing. Returns ``ax``.
+    """
     for spine in ax.spines.values():
         spine.set_visible(False)
+    ax.tick_params(which="both", length=0)
+    qa.FRAMELESS.add(ax)
+    return ax
+
+
+# --------------------------------------------------------------- legacy, removed in phase 2
+
+no_frame = frameless  # legacy, removed in phase 2
+SECONDARY_FADE = 0.55  # legacy, removed in phase 2
+
+
+def model_color(model: str, faded: bool = False) -> str:  # legacy, removed in phase 2
+    color = style.MODEL_COLORS[model]
+    return lighten(color, SECONDARY_FADE) if faded else color
+
+
+def marker_kwargs(model: str, marker: str = "o", size: float = 3.5, edge: float = 0.7, alpha: float = 1.0,
+                  faded: bool = False) -> dict:  # legacy, removed in phase 2: use model_style
+    color = model_color(model, faded)
+    return {"marker": marker, "markersize": size, "markeredgewidth": edge, "markeredgecolor": color,
+            "markerfacecolor": color if filled(model) else style.WHITE, "linestyle": "none", "alpha": alpha}
+
+
+def scatter_kwargs(model: str, size: float = 9.0, edge: float = 0.6, alpha: float = 1.0,
+                   faded: bool = False) -> dict:  # legacy, removed in phase 2: use model_scatter
+    color = model_color(model, faded)
+    return {"s": size, "linewidths": edge, "edgecolors": color,
+            "facecolors": color if filled(model) else style.WHITE, "alpha": alpha}

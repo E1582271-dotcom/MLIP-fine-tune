@@ -20,9 +20,11 @@ from matplotlib.patches import Rectangle
 from .. import constants as C
 from .. import paths
 from ..ingest import aimd
-from . import common, style
+from . import common, registry, style
 
-NAME = "ed09"
+KEY = "aimd"
+NAME = registry.number(KEY)
+PANELS = "abcde"
 WIDTH, HEIGHT = 183.0, 160.0
 FOLDER = paths.REFERENCES / "aimd_deng2017"
 AIMD_TRANSPORT = FOLDER / "transport.csv"
@@ -338,7 +340,7 @@ def make() -> list[Path]:
     L.letter(ax_c, "c", 3.0, 58.0)
     L.letter(ax_d, "d", 76.0, 58.0)
     L.letter(ax_e, "e", 3.0, 109.0)
-    return style.save(fig, "ed09_aimd", "extended")
+    return L.save(*registry.target(KEY))
 
 
 def _caption() -> str:
@@ -382,7 +384,7 @@ def _caption() -> str:
     mlip_high = max(f["sigma300_mS_cm"] for f in mlip.values())
     decades = np.log10(aimd_high / aimd_low)
     return (
-        "Extended Data Fig. 9 | The AIMD reference. Li transport of every model is compared with ab initio MD (AIMD) "
+        registry.heading(KEY) + "Li transport of every model is compared with ab initio MD (AIMD) "
         "of the same ordered Li6PS5Cl cell (Li24P4S20Cl4, Cl on 4a, S on 4c; amendment A3): the trajectories of "
         "Deng et al. (Chem. Mater. 29, 281-288, 2017), published with the paper's notebooks (repository "
         f"{aimd.REPOSITORY}, commit {aimd.COMMIT[:12]}, BSD-3-Clause license, Copyright (c) 2017 Materials Virtual "

@@ -19,9 +19,11 @@ from matplotlib.patches import Rectangle
 from .. import constants as C
 from .. import paths
 from ..transport import reproduction as R
-from . import common, style
+from . import common, registry, style
 
-NAME = "ed01"
+KEY = "stability"
+NAME = registry.number(KEY)
+PANELS = "abcde"
 WIDTH, HEIGHT = 183.0, 193.0
 THERMOSTAT = paths.RESULTS / "thermostat.csv"
 TIMESERIES = paths.MD / "timeseries.csv.gz"
@@ -404,7 +406,7 @@ def make() -> list[Path]:
     L.letter(ax_c, "c", 3.0, 74.0)
     L.letter(ax_d[0], "d", 120.0, 9.0)
     L.letter(ax_e[0], "e", 3.0, 129.0)
-    return style.save(fig, "ed01_stability", "extended")
+    return L.save(*registry.target(KEY))
 
 
 def _caption() -> str:
@@ -437,7 +439,7 @@ def _caption() -> str:
     t_range = (ts["T_K"].min(), ts["T_K"].max())
     big_n = sorted(set(big["n_atoms"]))
     return (
-        "Extended Data Fig. 1 | Temperature, energy and pressure of every MD run. All 42 runs (14 series at 600, "
+        registry.heading(KEY) + "All 42 runs (14 series at 600, "
         "800 and 1000 K; Langevin thermostat, 1 fs step). Filled markers, runs whose July run log survives "
         f"({n_logged}); open markers, statistics recovered from the trajectory only "
         f"({len(thermo) - n_logged}). Instantaneous temperature from the kinetic energy with 3N degrees of freedom; "

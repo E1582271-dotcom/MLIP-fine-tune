@@ -21,9 +21,11 @@ from matplotlib.patches import Patch
 
 from .. import constants as C
 from .. import paths
-from . import common, style
+from . import common, registry, style
 
-NAME = "fig4"
+KEY = "finetune"
+NAME = registry.number(KEY)
+PANELS = "abcdef"
 WIDTH, HEIGHT = 183.0, 130.0
 COMPARISON = paths.RESULTS / "transport_comparison.csv"
 RATIOS = paths.RESULTS / "transport_ratios.csv"
@@ -43,7 +45,6 @@ CAPTION_NAMES = {"foundation": "MACE-MP-0", "ftG": "Gamma-label run", "ftK": "2x
 AIMD_COLOR = style.OKABE_ITO["black"]
 AIMD_MARKER = "s"
 AIMD_LABEL = "AIMD, same ordered cell (Deng et al. 2017)"
-CAGED_SLOPE = 0.25  # AIMD runs whose Li MSD log-log slope in the fit window is below this are caged
 SOFTENING_SUBSET = "All27"
 MSD_TEMPERATURES = (600, 1000)
 RATIO_TEMPERATURE = 1000  # temperature of the D ratio in panel e
@@ -72,35 +73,8 @@ def _reading(comparison: pd.DataFrame) -> pd.Series:
     return rows.iloc[0]
 
 
-def _md_models(cross: pd.DataFrame, fits: pd.DataFrame) -> dict[str, str]:
-    """model (foundation, ftG, ftK) -> id of the model that drove its MD run, from ``drove_md``."""
-    drove = cross[cross["drove_md"].fillna("").astype(str) != ""].groupby("drove_md")["model"].unique()
-    out = {}
-    for model in MODELS:
-        ids = drove[fits.loc[model, "series"]]
-        if len(ids) != 1:
-            raise ValueError(f"expected one model for the run of {model}")
-        out[model] = str(ids[0])
-    return out
-
-
 def _stage_word(model_id: str) -> str:
     return {"s1": "stage-one", "s2": "stage-two"}[model_id.split("_")[1]]
-
-
-def _sig(value: float, digits: int = 3) -> str:
-    """``value`` to ``digits`` significant figures, keeping trailing zeros (0.260, not 0.26)."""
-    value = float(value)
-    if value == 0 or not math.isfinite(value):
-        return f"{value:g}"
-    decimals = max(digits - 1 - math.floor(math.log10(abs(value))), 0)
-    return f"{value:.{decimals}f}"
-
-
-def _sci(value: float) -> str:
-    """Three significant figures in a x 10^n form, ASCII (for the caption)."""
-    exponent = math.floor(math.log10(abs(value)))
-    return f"{_sig(value / 10 ** exponent)}e{exponent}"
 
 
 def _softening(cross: pd.DataFrame, model_id: str, subset: str) -> float:
@@ -116,11 +90,6 @@ def _aimd_ratio(aimd_ratios: pd.DataFrame, series: str, temperature: int) -> pd.
     if len(rows) != 1:
         raise ValueError(f"expected one AIMD comparison row for {series} at {temperature} K")
     return rows.iloc[0]
-
-
-def _caged(aimd: pd.DataFrame) -> set[int]:
-    """AIMD temperatures at which the Li MSD is almost flat in the fit window."""
-    return set(aimd.loc[aimd["msd_loglog_slope_fit_window"] < CAGED_SLOPE, "temperature_K"].astype(int))
 
 
 def _inverse(values):
@@ -160,7 +129,7 @@ def _panel_a(ax, d: dict, fits: pd.DataFrame, md: dict[str, str]) -> Path:
                      "pymatgen_D_cm2_s": p, "msd_loglog_slope": s, "caged": False}
                     for t, xi, yi, ei, p, s in zip(temps, x, y, err, runs["D_cm2_s"],
                                                    runs["msd_loglog_slope_fit_window"]))
-    aimd, caged = d["aimd"], _caged(d["aimd"])
+    aimd, caged = d["aimd"], common.caged_temperatures(d["aimd"])
     temps = aimd["temperature_K"].to_numpy(float)
     x = 1000.0 / temps + A_OFFSETS["aimd"]
     y, err = aimd["kinisi_D_cm2_s"].to_numpy(), aimd["kinisi_D_std_cm2_s"].to_numpy()
@@ -199,7 +168,7 @@ def _ratio_marks(ax, x: float, kinisi: float, err: float, pymatgen: float, model
 
 def _panel_b(ax, ax_low, d: dict, fits: pd.DataFrame, md: dict[str, str]) -> Path:
     temps = list(C.TEMPERATURES)
-    caged = _caged(d["aimd"])
+    caged = common.caged_temperatures(d["aimd"])
     rows = []
     for index, temperature in enumerate(temps):
         if temperature in caged:
@@ -287,9 +256,9 @@ def _panel_c(ax_s, ax_e, fits: pd.DataFrame, md: dict[str, str]) -> Path:
 def _reading_text(reading: pd.Series, md: dict[str, str]) -> str:
     g, k, f0 = SUBSCRIPTS["ftG"], SUBSCRIPTS["ftK"], SUBSCRIPTS["foundation"]
     return (f"$f$ = ln($\\sigma_{{{k}}}$/$\\sigma_{{{g}}}$) / ln($\\sigma_{{{f0}}}$/$\\sigma_{{{g}}}$)"
-            f" = {_sig(reading['f_recovered_fraction'])}\n"
-            f"ln($\\sigma_{{{k}}}$/$\\sigma_{{{g}}}$) = {_sig(reading['ln_sigma_ftK_over_ftG'])}"
-            f" $\\pm$ {_sig(reading['ln_sigma_ftK_over_ftG_err'])}\n"
+            f" = {common.sig(reading['f_recovered_fraction'])}\n"
+            f"ln($\\sigma_{{{k}}}$/$\\sigma_{{{g}}}$) = {common.sig(reading['ln_sigma_ftK_over_ftG'])}"
+            f" $\\pm$ {common.sig(reading['ln_sigma_ftK_over_ftG_err'])}\n"
             f"Pre-registered reading: {reading['reading']}\n"
             f"MD models: Gamma {_stage_word(md['ftG'])}, 2x2x2 {_stage_word(md['ftK'])}")
 
@@ -330,7 +299,7 @@ def _msd_axis(ax, d: dict, fits: pd.DataFrame, temperature: int, slopes_text: bo
         ax.text(0.04, 0.95, "Log-log slope in\nthe fit window", transform=ax.transAxes, ha="left", va="top",
                 fontsize=style.SMALL, linespacing=1.1)
         for index, (label, color, slope) in enumerate(slopes):
-            ax.text(0.04, 0.80 - index * 0.075, f"{label}  {_sig(slope)}", transform=ax.transAxes, ha="left",
+            ax.text(0.04, 0.80 - index * 0.075, f"{label}  {common.sig(slope)}", transform=ax.transAxes, ha="left",
                     va="top", fontsize=style.SMALL, color=color)
     out = pd.concat(frames, ignore_index=True)
     out["loglog_slope_fit_window"] = out["model"].map({m: s for m, (_, _, s) in zip([*MODELS, "AIMD"], slopes)})
@@ -406,7 +375,7 @@ def _panel_f(ax, d: dict, fits: pd.DataFrame, md: dict[str, str]) -> Path:
 def make() -> list[Path]:
     d = _load()
     fits = _fits(d["comparison"])
-    md = _md_models(d["cross"], fits)
+    md = common.md_models(d["cross"])
     reading = _reading(d["comparison"])
     fig, L = common.new_figure(WIDTH, HEIGHT)
 
@@ -441,17 +410,17 @@ def make() -> list[Path]:
     L.letter(ax_d_low, "d", 3.0, 71.0)
     L.letter(ax_e, "e", 76.0, 71.0)
     L.letter(ax_f, "f", 128.0, 71.0)
-    return style.save(fig, "fig4_transport", "main") + sources
+    return L.save(*registry.target(KEY)) + sources
 
 
 def _caption() -> str:
     d = _load()
     fits = _fits(d["comparison"])
-    md = _md_models(d["cross"], fits)
+    md = common.md_models(d["cross"])
     reading = _reading(d["comparison"])
     name = CAPTION_NAMES
     aimd = d["aimd"].set_index("temperature_K")
-    caged = sorted(_caged(d["aimd"]))
+    caged = sorted(common.caged_temperatures(d["aimd"]))
     production = C.SERIES_BY_ID[fits.loc["foundation", "series"]]["production_ps"]
     start, aimd_start = _window_start(production), _window_start(float(d["aimd"]["length_ps"].iloc[0]))
 
@@ -461,40 +430,40 @@ def _caption() -> str:
     a_aimd = float(aimd["a_A"].iloc[0])
     smaller = (1.0 - (a_aimd / a_mlip) ** 3) * 100.0
     cell = (f"AIMD: VASP, {int(aimd['n_atoms'].iloc[0])} atoms (Li24P4S20Cl4, Cl on 4a and S on 4c, as here), "
-            f"a = {_sig(a_aimd, 4)} A against {_sig(a_mlip, 4)} A for the MLIP runs ({_sig(smaller, 2)} % smaller "
+            f"a = {common.sig(a_aimd, 4)} A against {common.sig(a_mlip, 4)} A for the MLIP runs ({common.sig(smaller, 2)} % smaller "
             f"volume), {int(aimd['time_step_fs'].iloc[0])}-fs time step, every {int(aimd['step_skip'].iloc[0])}th "
             f"step stored, {round(float(aimd['length_ps'].iloc[0]))} ps per temperature, one trajectory per "
             f"temperature; exchange-correlation functional and thermostat not recorded in the files. The MLIP runs "
             f"have {int(run['n_atoms'])} atoms and {production} ps. Both are analysed with the same estimators and "
             f"settings")
-    aimd_text = "; ".join(f"{t} K, {_sci(r['kinisi_D_cm2_s'])} +/- {_sci(r['kinisi_D_std_cm2_s'])} cm2/s "
-                          f"(log-log slope {_sig(r['msd_loglog_slope_fit_window'])})" for t, r in aimd.iterrows())
+    aimd_text = "; ".join(f"{t} K, {common.sci(r['kinisi_D_cm2_s'], 3)} +/- {common.sci(r['kinisi_D_std_cm2_s'], 3)} cm2/s "
+                          f"(log-log slope {common.sig(r['msd_loglog_slope_fit_window'])})" for t, r in aimd.iterrows())
 
     def ratio(model, t, column="kinisi_D_ratio_to_aimd"):
         return _aimd_ratio(d["aimd_ratios"], fits.loc[model, "series"], t)[column]
 
     ratio_text = "; ".join(
-        f"{name[m]} " + ", ".join(f"{_sig(ratio(m, t))} +/- {_sig(ratio(m, t) * ratio(m, t, 'kinisi_D_ratio_rel_err'))}"
+        f"{name[m]} " + ", ".join(f"{common.sig(ratio(m, t))} +/- {common.sig(ratio(m, t) * ratio(m, t, 'kinisi_D_ratio_rel_err'))}"
                                   for t in C.TEMPERATURES) for m in MODELS)
-    pym_text = "; ".join(f"{name[m]} " + ", ".join(_sig(ratio(m, t, "pymatgen_D_ratio_to_aimd"))
+    pym_text = "; ".join(f"{name[m]} " + ", ".join(common.sig(ratio(m, t, "pymatgen_D_ratio_to_aimd"))
                                                     for t in C.TEMPERATURES) for m in MODELS)
     hot = [t for t in C.TEMPERATURES if t not in caged]
     fine = [ratio(m, t) for m in FINE_TUNED for t in hot]
     base = [ratio("foundation", t) for t in hot]
     low = d["ratios"]
     pre = "; ".join(f"{name[m]} " + ", ".join(
-        f"{_sig(r['kinisi_D_ratio'])} +/- {_sig(r['kinisi_D_ratio'] * r['kinisi_D_ratio_rel_err'])}"
+        f"{common.sig(r['kinisi_D_ratio'])} +/- {common.sig(r['kinisi_D_ratio'] * r['kinisi_D_ratio_rel_err'])}"
         for _, r in low[low["model"] == m].sort_values("temperature_K").iterrows()) for m in FINE_TUNED)
 
     def fit_text(model):
         f = fits.loc[model]
-        return (f"{name[model]} {_sig(f['sigma300_mS_cm'])} [{_sig(f['sigma300_min_mS_cm'])}, "
-                f"{_sig(f['sigma300_max_mS_cm'])}] mS/cm and Ea {_sig(f['Ea_eV'])} +/- {_sig(f['Ea_err_eV'])} eV")
+        return (f"{name[model]} {common.sig(f['sigma300_mS_cm'])} [{common.sig(f['sigma300_min_mS_cm'])}, "
+                f"{common.sig(f['sigma300_max_mS_cm'])}] mS/cm and Ea {common.sig(f['Ea_eV'])} +/- {common.sig(f['Ea_err_eV'])} eV")
 
     slopes = d["transport"].set_index("run_id")["msd_loglog_slope_fit_window"]
-    slope_text = ", ".join(f"{name[m]} {_sig(slopes[C.run_id(fits.loc[m, 'series'], MSD_TEMPERATURES[0])])}"
+    slope_text = ", ".join(f"{name[m]} {common.sig(slopes[C.run_id(fits.loc[m, 'series'], MSD_TEMPERATURES[0])])}"
                            for m in MODELS)
-    soft_text = ", ".join(f"{name[m]} {_sig(_softening(d['cross'], md[m], SOFTENING_SUBSET))}" for m in MODELS)
+    soft_text = ", ".join(f"{name[m]} {common.sig(_softening(d['cross'], md[m], SOFTENING_SUBSET))}" for m in MODELS)
     pressure = {m: d["thermostat"][d["thermostat"]["series"] == fits.loc[m, "series"]].set_index("temperature_K")
                 ["mean_P_GPa"] for m in MODELS}
     shift = [pressure[m][t] - pressure["foundation"][t] for m in FINE_TUNED for t in C.TEMPERATURES]
@@ -505,8 +474,8 @@ def _caption() -> str:
     sem = max(row.std_P_GPa / math.sqrt(d["blocks"][row.run_id]) for row in runs.itertuples())
     caged_text = " and ".join(f"{t} K" for t in caged)
     return (
-        "Fig. 4 | What fine-tuning changes in Li transport. "
-        "MLIP values are re-analysis values of the 416-atom, 200-ps runs at 600, 800 and 1000 K. The transport "
+        registry.heading(KEY)
+        + "MLIP values are re-analysis values of the 416-atom, 200-ps runs at 600, 800 and 1000 K. The transport "
         "reference is AIMD of the same ordered cell at the simulated temperatures (Deng et al., Chem. Mater. 29, "
         f"281 (2017); amendment A3), compared without extrapolation. {cell}. "
         f"The Gamma-label run used the {_stage_word(md['ftG'])} model and the 2x2x2-label run the "
@@ -521,33 +490,33 @@ def _caption() -> str:
         "kinisi relative standard deviations in quadrature; logarithmic axis) and the pymatgen D ratio (bars). At "
         f"600, 800 and 1000 K: {ratio_text} (pymatgen: {pym_text}). The {caged_text} column (grey) compares with "
         "caged AIMD motion, not with diffusion. At the diffusive temperatures fine-tuning moves D towards AIMD: the "
-        f"fine-tuned runs are {_sig(min(fine))}-{_sig(max(fine))} times AIMD, the foundation {_sig(min(base))}-"
-        f"{_sig(max(base))} times. Bottom, the pre-registered comparison: kinisi D of each fine-tuned run divided "
+        f"fine-tuned runs are {common.sig(min(fine))}-{common.sig(max(fine))} times AIMD, the foundation {common.sig(min(base))}-"
+        f"{common.sig(max(base))} times. Bottom, the pre-registered comparison: kinisi D of each fine-tuned run divided "
         f"by that of the foundation run, at 600, 800 and 1000 K: {pre}. "
         "**c**, sigma(300 K) (logarithmic axis, 1-sigma interval from the fit covariance) and Ea (+/- 1 s.d.) of "
         "the weighted Arrhenius fits of ln(sigma T) against 1/T (pymatgen D, 600-1000 K): "
         f"{'; '.join(fit_text(m) for m in MODELS)}. Reading fixed in the analysis plan: f = "
         "ln(sigma_2x2x2/sigma_Gamma)/ln(sigma_MP0/sigma_Gamma), the fraction of the fine-tuning slowdown recovered "
-        f"with the 2x2x2 labels (MP0, the foundation run), is {_sig(reading['f_recovered_fraction'])}, and "
-        f"ln(sigma_2x2x2/sigma_Gamma) = {_sig(reading['ln_sigma_ftK_over_ftG'])} +/- "
-        f"{_sig(reading['ln_sigma_ftK_over_ftG_err'])}. Since f < 0.25 the reading is '{reading['reading']}': the "
+        f"with the 2x2x2 labels (MP0, the foundation run), is {common.sig(reading['f_recovered_fraction'])}, and "
+        f"ln(sigma_2x2x2/sigma_Gamma) = {common.sig(reading['ln_sigma_ftK_over_ftG'])} +/- "
+        f"{common.sig(reading['ln_sigma_ftK_over_ftG_err'])}. Since f < 0.25 the reading is '{reading['reading']}': the "
         "k-point sampling of the labels does not explain the slowdown. The two runs used models from different "
         "training stages, so this comparison is confounded with the training stage. "
         f"**d**, Li mean-squared displacement at {MSD_TEMPERATURES[0]} K (left) and {MSD_TEMPERATURES[1]} K "
         "(right) averaged over all time origins, with the AIMD MSD of the 52-atom cell (black); logarithmic axes. "
         f"Grey band, the MLIP fit window (lag >= {start:g} ps); black bar, the AIMD fit window (lag >= "
-        f"{_sig(aimd_start)} ps); both start at {C.KINISI_START_FRACTION * 100:g} % of the run length. Log-log slopes "
+        f"{common.sig(aimd_start)} ps); both start at {C.KINISI_START_FRACTION * 100:g} % of the run length. Log-log slopes "
         f"in the window at {MSD_TEMPERATURES[0]} K: {slope_text}, AIMD "
-        f"{_sig(aimd.loc[MSD_TEMPERATURES[0], 'msd_loglog_slope_fit_window'])} (1 for diffusive motion). "
+        f"{common.sig(aimd.loc[MSD_TEMPERATURES[0], 'msd_loglog_slope_fit_window'])} (1 for diffusive motion). "
         "**e**, Li force softening slope (least-squares slope through the origin of model against 2x2x2 DFT Li "
         f"force components on all 27 configurations, {SOFTENING_SUBSET}: {soft_text}) against the kinisi D ratio "
         f"to AIMD at {RATIO_TEMPERATURE} K (+/- 1 s.d.). Across these three models, softer Li forces go with a "
         "larger overestimate of D; n = 3, descriptive only, no fit. "
         "**f**, Mean pressure of each MLIP run in the fixed cell (one cell for all three models) against "
-        f"temperature; markers are the run means. The fine-tuned runs lie {_sig(-max(shift))} to "
-        f"{_sig(-min(shift))} GPa below the foundation run at the same temperature. The standard deviation of the "
+        f"temperature; markers are the run means. The fine-tuned runs lie {common.sig(-max(shift))} to "
+        f"{common.sig(-min(shift))} GPa below the foundation run at the same temperature. The standard deviation of the "
         "instantaneous pressure divided by the square root of the number of 0.5-ps blocks "
-        f"({n_blocks[0]}) is at most {_sig(sem)} GPa, smaller than the markers. "
+        f"({n_blocks[0]}) is at most {common.sig(sem)} GPa, smaller than the markers. "
         + common.sources([TRANSPORT, AIMD_TRANSPORT, AIMD_COMPARISON, RATIOS, COMPARISON, MSD, AIMD_MSD, CROSS,
                           THERMOSTAT, TIMESERIES])
     )

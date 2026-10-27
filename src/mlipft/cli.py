@@ -1,6 +1,7 @@
 """Command line.
 
-Rebuild layer (needs only data/): ``mlipft tables | figures | docs | check-repo | all``.
+Rebuild layer (needs only data/): ``mlipft tables | figures | docs | check-repo | all``;
+``mlipft figures [--only fig2 aimd] [--strict] [--audit DIR]`` adds the figure QA gate and crop audit.
 Ingest layer (needs the raw backup in MLIPFT_RAW and the ingest dependencies):
 ``mlipft ingest published --legacy <repo> | dft | models | trajectories [--workers N] | collect | manifest``;
 ``mlipft ingest aimd --source <folder>`` (the AIMD reference, amendment A3).
@@ -55,9 +56,22 @@ def _tables(_args) -> int:
 
 
 def _figures(args) -> int:
-    from .figures import registry
+    from .figures import qa, registry
 
-    for path in registry.build(args.only):
+    strict = True if getattr(args, "strict", False) else None
+    audit = getattr(args, "audit", None)
+    if audit:
+        try:
+            audit = qa.outside_repository(audit)
+        except ValueError as error:
+            print(f"mlipft figures: {error}", file=sys.stderr)
+            return 2
+    try:
+        written = registry.build(args.only, strict=strict, audit=audit)
+    except qa.FigureQAError as error:
+        print(error, file=sys.stderr)
+        return 1
+    for path in written:
         print("wrote", path)
     return 0
 
@@ -82,8 +96,20 @@ def _check(_args) -> int:
 
 def _all(args) -> int:
     for step in (_tables, _figures, _docs):
-        step(args)
+        if step(args):
+            return 1
     return 0
+
+
+def _figure_options(parser) -> None:
+    parser.add_argument("--only", nargs="*", default=None,
+                        help="figure numbers or keys (fig2, ed08, forces, aimd); default: every figure, after "
+                             "deleting all exports and source data")
+    parser.add_argument("--strict", action="store_true",
+                        help="fail on any figure QA error (local check; default: MLIPFT_QA, else warn)")
+    parser.add_argument("--audit", metavar="DIR",
+                        help="write zoomed 600-dpi crops, contact sheets and index.json per figure to DIR "
+                             "(outside the repository)")
 
 
 def main(argv=None) -> int:
@@ -97,12 +123,12 @@ def main(argv=None) -> int:
     ingest.set_defaults(func=_ingest)
     sub.add_parser("tables", help="data/ -> results/").set_defaults(func=_tables)
     figures = sub.add_parser("figures", help="draw every figure")
-    figures.add_argument("--only", nargs="*", default=None)
+    _figure_options(figures)
     figures.set_defaults(func=_figures)
     sub.add_parser("docs", help="write the generated documents").set_defaults(func=_docs)
     sub.add_parser("check-repo", help="no CJK text, no private identifiers, size limits").set_defaults(func=_check)
     everything = sub.add_parser("all", help="tables, figures and docs")
-    everything.add_argument("--only", nargs="*", default=None)
+    _figure_options(everything)
     everything.set_defaults(func=_all)
     args = parser.parse_args(argv)
     return args.func(args)

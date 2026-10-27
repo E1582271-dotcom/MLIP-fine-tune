@@ -15,9 +15,11 @@ from matplotlib.lines import Line2D
 from matplotlib.patches import Rectangle
 
 from .. import paths
-from . import common, style
+from . import common, registry, style
 
-NAME = "fig3"
+KEY = "forces"
+NAME = registry.number(KEY)
+PANELS = "abcdef"
 WIDTH, HEIGHT = 183.0, 150.0
 CONFIGS = paths.DFT / "configs.csv"
 FLOOR = paths.RESULTS / "label_floor.csv"
@@ -344,7 +346,7 @@ def make() -> list[Path]:
     L.letter(ax_d[0], "d", 3.0, 57.0)
     L.letter(ax_e, "e", 128.0, 57.0)
     L.letter(ax_f, "f", 3.0, 109.0)
-    return style.save(fig, "fig3_dft", "main")
+    return L.save(*registry.target(KEY))
 
 
 def _caption() -> str:
@@ -372,8 +374,8 @@ def _caption() -> str:
     fmeans = fk.groupby("temperature_K")["energy_centred_meV_atom"].mean()
     trend = ", ".join(f"{fmeans[t]:+.1f} at {t} K" for t in sorted(fmeans.index))
     return (
-        "Fig. 3 | Fine-tuned models against their DFT reference. "
-        f"**a**, The 27 DFT-labelled configurations (frames 100-900 of the 52-atom MACE-MP-0 runs at 600, 800 and "
+        registry.heading(KEY)
+        + f"**a**, The 27 DFT-labelled configurations (frames 100-900 of the 52-atom MACE-MP-0 runs at 600, 800 and "
         f"1000 K) by subset: T22, used in training by both fine-tunes ({counts['T22']}); H3, held out by both "
         f"({counts['H3']}: {h3_ids}), the primary test set; H2, held out by the Gamma fine-tune only "
         f"({counts['H2']}). {'No' if held_1000 == 0 else held_1000} 1000 K configuration is held out. "

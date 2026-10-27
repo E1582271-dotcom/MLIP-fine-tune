@@ -19,9 +19,11 @@ from matplotlib.lines import Line2D
 from .. import constants as C
 from .. import paths
 from ..transport.arrhenius import sigma_model
-from . import common, style
+from . import common, registry, style
 
-NAME = "ed08"
+KEY = "clexcess"
+NAME = registry.number(KEY)
+PANELS = "abcde"
 WIDTH, HEIGHT = 183.0, 102.0
 CLEXCESS = paths.RESULTS / "clexcess.csv"
 FITS = paths.RESULTS / "fits.csv"
@@ -50,15 +52,6 @@ def _formula(composition: str) -> str:
 
 def _color(cl_content: float) -> str:
     return style.CL_COLORS[round(float(cl_content), 2)]
-
-
-def _sig(value: float, digits: int = 3) -> str:
-    """``value`` to ``digits`` significant figures, keeping trailing zeros (0.260, not 0.26)."""
-    value = float(value)
-    if value == 0 or not math.isfinite(value):
-        return f"{value:g}"
-    decimals = max(digits - 1 - math.floor(math.log10(abs(value))), 0)
-    return f"{value:.{decimals}f}"
 
 
 def _measured(literature: pd.DataFrame) -> dict:
@@ -223,7 +216,7 @@ def _panel_e(ax, series: pd.DataFrame, transport: pd.DataFrame, msd: pd.DataFram
     ax.text(0.04, 0.97, f"Log-log slope, lag $\\geq$ {start:g} ps", transform=ax.transAxes, ha="left", va="top",
             fontsize=style.SMALL)
     for index, (fit, (_, slope)) in enumerate(zip(series.itertuples(), slopes)):
-        ax.text(0.04, 0.86 - index * 0.105, f"Cl {fit.cl_content:.2f}  {_sig(slope)}", transform=ax.transAxes,
+        ax.text(0.04, 0.86 - index * 0.105, f"Cl {fit.cl_content:.2f}  {common.sig(slope)}", transform=ax.transAxes,
                 ha="left", va="top", fontsize=style.SMALL, color=_color(fit.cl_content))
     source = pd.concat(frames, ignore_index=True)
     source["loglog_slope_fit_window"] = source["run_id"].map(dict(slopes))
@@ -258,7 +251,7 @@ def make() -> list[Path]:
     L.letter(ax_c, "c", 126.0, 9.5)
     L.letter(ax_d, "d", 69.0, 56.5)
     L.letter(ax_e, "e", 126.0, 56.5)
-    return style.save(fig, "ed08_clexcess", "extended") + sources
+    return L.save(*registry.target(KEY)) + sources
 
 
 def _caption() -> str:
@@ -270,26 +263,26 @@ def _caption() -> str:
     pairs = fits[fits["series"].isin(series["series"])].pivot(index="series", columns="source",
                                                               values="sigma300_mS_cm")
     agreement = (pairs["reanalysis"] / pairs["published"] - 1).abs().max() * 100 if "published" in pairs else 0.0
-    sigma_text = "; ".join(f"Cl {cl:.2f}, {_sig(r.sigma300_mS_cm)} [{_sig(r.sigma300_min_mS_cm)}, "
-                           f"{_sig(r.sigma300_max_mS_cm)}] mS/cm" for cl, r in indexed.iterrows())
-    ea_text = ", ".join(f"{_sig(r.Ea_eV)} +/- {_sig(r.Ea_err_eV)}" for _, r in indexed.iterrows())
-    enh_text = "; ".join(f"Cl {cl:.2f}, {_sig(r.enhancement_over_x0)} [{_sig(r.enhancement_min)}, "
-                         f"{_sig(r.enhancement_max)}]" for cl, r in indexed.iterrows() if cl > indexed.index.min())
+    sigma_text = "; ".join(f"Cl {cl:.2f}, {common.sig(r.sigma300_mS_cm)} [{common.sig(r.sigma300_min_mS_cm)}, "
+                           f"{common.sig(r.sigma300_max_mS_cm)}] mS/cm" for cl, r in indexed.iterrows())
+    ea_text = ", ".join(f"{common.sig(r.Ea_eV)} +/- {common.sig(r.Ea_err_eV)}" for _, r in indexed.iterrows())
+    enh_text = "; ".join(f"Cl {cl:.2f}, {common.sig(r.enhancement_over_x0)} [{common.sig(r.enhancement_min)}, "
+                         f"{common.sig(r.enhancement_max)}]" for cl, r in indexed.iterrows() if cl > indexed.index.min())
     at = indexed.loc[measured["cl_content"]]
     over = at["enhancement_over_x0"] / measured["enhancement"]
     slopes = transport.set_index("run_id")["msd_loglog_slope_fit_window"]
-    slope_text = ", ".join(f"{_sig(slopes[C.run_id(s, MSD_TEMPERATURE)])}" for s in series["series"])
+    slope_text = ", ".join(f"{common.sig(slopes[C.run_id(s, MSD_TEMPERATURE)])}" for s in series["series"])
     xs = ", ".join(f"{cl - 1:g}" for cl in indexed.index)
     atoms = ", ".join(str(int(n)) for n in series["n_atoms"])
     length = C.SERIES_BY_ID[series["series"].iloc[0]]["production_ps"]
     measured_conditions = measured["conditions"].split(";")[0].strip()
     return (
-        "Extended Data Fig. 8 | Cl-excess series under MACE-MP-0. "
-        f"Li(6-x)PS(5-x)Cl(1+x) with x = {xs} (Cl {indexed.index.min():.2f}-{indexed.index.max():.2f} per formula "
+        registry.heading(KEY)
+        + f"Li(6-x)PS(5-x)Cl(1+x) with x = {xs} (Cl {indexed.index.min():.2f}-{indexed.index.max():.2f} per formula "
         f"unit; {atoms} atoms), MACE-MP-0, {length:g}-ps runs at 600, 800 and 1000 K. Fits are the quoted values "
         "under the "
         f"reproduction rule ({sources_used}; the re-analysis reproduces sigma(300 K) to within "
-        f"{_sig(agreement)} %). "
+        f"{common.sig(agreement)} %). "
         "**a**, Arrhenius plot: per-run Nernst-Einstein conductivity from the pymatgen diffusion coefficient with "
         "the kinisi standard deviation as error bar, and the weighted fit of ln(sigma T) against 1/T (solid, "
         "600-1000 K; dashed, extrapolated to 300 K). "
@@ -298,7 +291,7 @@ def _caption() -> str:
         f"of the two fits in quadrature: {enh_text}. Black diamond, the measured enhancement of "
         f"{measured['material']} over {measured['reference_material']} prepared the same way (about "
         f"{measured['enhancement']:g} times; {measured['sigma_mS_cm']:g} mS/cm, {measured_conditions}; Adeli et "
-        f"al. 2019). The simulated enhancement at Cl {measured['cl_content']:.2f} is {_sig(over)} times the measured one. "
+        f"al. 2019). The simulated enhancement at Cl {measured['cl_content']:.2f} is {common.sig(over)} times the measured one. "
         f"Logarithmic axis. "
         f"**d**, Activation energy (+/- 1 s.d.): {ea_text} eV for Cl 1.00 to 1.75. "
         f"**e**, Li mean-squared displacement at {MSD_TEMPERATURE} K averaged over all time origins (logarithmic "

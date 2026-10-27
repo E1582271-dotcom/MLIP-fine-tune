@@ -13,9 +13,11 @@ import pandas as pd
 from matplotlib.lines import Line2D
 
 from .. import paths
-from . import common, style
+from . import common, registry, style
 
-NAME = "ed05"
+KEY = "labels"
+NAME = registry.number(KEY)
+PANELS = "abcd"
 WIDTH, HEIGHT = 183.0, 122.0
 CONFIGS = paths.DFT / "configs.csv"
 QE_RUNS = paths.DFT / "qe_runs.csv"
@@ -193,7 +195,7 @@ def make() -> list[Path]:
     L.letter(ax_time, "c", 134.0, 7.0)
     L.letter(axes_b[0], "b", 3.0, 82.0)
     L.letter(ax_d, "d", 134.0, 82.0)
-    return style.save(fig, "ed05_labels", "extended")
+    return L.save(*registry.target(KEY))
 
 
 def _caption() -> str:
@@ -227,7 +229,7 @@ def _caption() -> str:
     threshold = f"{settings['conv_thr_Ry']:.0e}".replace("e-0", "e-")
     libraries = common.read(PSEUDOPOTENTIALS)["library"].str.split(";").str[0].unique()
     return (
-        f"Extended Data Fig. 5 | The two DFT label sets. Both sets label the same 27 configurations with Quantum "
+        registry.heading(KEY) + f"Both sets label the same 27 configurations with Quantum "
         f"ESPRESSO {str(settings['qe_version']).removeprefix('v.')} ({' and '.join(libraries)} pseudopotentials, "
         f"{settings['ecutwfc_Ry']:g}/{settings['ecutrho_Ry']:g} Ry, Gaussian smearing {settings['smearing_Ry']:g} "
         f"Ry, convergence threshold {threshold} Ry) and differ only in the k-point sampling: "

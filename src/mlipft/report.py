@@ -276,17 +276,17 @@ def reproduction_markdown() -> str:
 
 # --- figures.md and README --------------------------------------------------------------------
 def figures_markdown() -> str:
-    from .figures.registry import FIGURES, module
+    from .figures import registry
 
     parts = [f"# Figures\n\n{GENERATED}\n",
              "Main figures in `figures/main/`, Extended Data in `figures/extended/`, each as PDF, SVG (editable "
              "text) and 600-dpi PNG; the plotted values of every panel are in `figures/source_data/`. Rebuild with "
              "`python -m mlipft figures`.\n"]
-    for name, (module_name, title) in FIGURES.items():
-        folder = "main" if name.startswith("fig") else "extended"
-        label = f"Fig. {int(name[3:])}" if name.startswith("fig") else f"Extended Data Fig. {int(name[2:])}"
-        parts.append(f"## {label}. {title}\n\n![{label}](../figures/{folder}/{module_name}.png)\n\n"
-                     f"{module(name).CAPTION}\n")
+    for entry in registry.ENTRIES:
+        label = registry.label(entry.key)
+        name, folder = registry.target(entry.key)
+        parts.append(f"## {label}. {entry.title}\n\n![{label}](../figures/{folder}/{name}.png)\n\n"
+                     f"{registry.module(entry.key).CAPTION}\n")
     return "\n".join(parts).rstrip() + "\n"
 
 

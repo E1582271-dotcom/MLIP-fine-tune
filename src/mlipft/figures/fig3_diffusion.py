@@ -20,9 +20,11 @@ from matplotlib.patches import Patch
 
 from .. import paths
 from ..constants import KINISI_START_FRACTION, SERIES_BY_ID, TEMPERATURES
-from . import common, style
+from . import common, registry, style
 
-NAME = "fig2"
+KEY = "diffusion"
+NAME = registry.number(KEY)
+PANELS = "abcde"
 WIDTH, HEIGHT = 183.0, 162.0
 COMPARISON = paths.RESULTS / "aimd_comparison.csv"
 AIMD = paths.REFERENCES / "aimd_deng2017" / "transport.csv"
@@ -397,7 +399,7 @@ def make() -> list[Path]:
     L.letter(ax_c[0], "c", 3.0, top2 - 3.0)
     L.letter(ax_d, "d", 3.0, top3 - 3.0)
     L.letter(ax_e, "e", 100.0, top3 - 3.0)
-    return style.save(fig, "fig2_universal", "main") + sources
+    return L.save(*registry.target(KEY)) + sources
 
 
 def _caption() -> str:
@@ -439,8 +441,8 @@ def _caption() -> str:
     matched = {m: next(s for s in CELL_52[m] if SERIES_BY_ID[s]["production_ps"] == round(length)) for m in MODELS}
     baktash = extrapolations.loc["baktash2020"]
     return (
-        "Fig. 2 | Universal potentials against AIMD. "
-        "The reference is AIMD of the same ordered S/Cl arrangement (Cl on 4a, S on 4c) by Deng et al. (2017): "
+        registry.heading(KEY)
+        + "The reference is AIMD of the same ordered S/Cl arrangement (Cl on 4a, S on 4c) by Deng et al. (2017): "
         f"52 atoms, a = {a_aimd:.2f} A (here {a_mlip:.2f} A, a {100 * ((a_mlip / a_aimd) ** 3 - 1):.0f} % larger volume), "
         f"{length:.0f} ps per temperature, "
         "re-analysed with the estimators and settings of the MLIP runs (protocol amendment A3). "

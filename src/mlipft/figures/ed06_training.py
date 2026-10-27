@@ -15,9 +15,11 @@ from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 
 from .. import paths
-from . import common, style
+from . import common, registry, style
 
-NAME = "ed06"
+KEY = "training"
+NAME = registry.number(KEY)
+PANELS = "abc"
 WIDTH, HEIGHT = 183.0, 108.0
 RECORDS = {"ftG": paths.MODELS / "training" / "ftG_record.jsonl", "ftK": paths.MODELS / "training" / "ftK_record.jsonl"}
 EVALUATION = paths.MODELS / "evaluation.json"
@@ -185,7 +187,7 @@ def make() -> list[Path]:
     L.letter(ax_a, "a", 3.0, 15.0)
     L.letter(ax_b, "b", 96.0, 15.0)
     L.letter(ax_c, "c", 3.0, 73.0)
-    return style.save(fig, "ed06_training", "extended")
+    return L.save(*registry.target(KEY))
 
 
 def _caption() -> str:
@@ -210,7 +212,7 @@ def _caption() -> str:
     max_valid_diff = float(np.max(np.abs(reproduction["logged_valid_rmse_f_meV_A"]
                                          - reproduction["reevaluated_valid_rmse_f_meV_A"])))
     return (
-        "Extended Data Fig. 6 | Training records of the two fine-tunes. Both start from MACE-MP-0 small with the "
+        registry.heading(KEY) + "Both start from MACE-MP-0 small with the "
         f"same settings (batch size {g['batch_size']}; stage one with energy and force loss weights "
         f"{g['stage_one_loss_weights'][0]:g} and {g['stage_one_loss_weights'][1]:g} and learning rate "
         f"{g['learning_rate']:g}; stage two, from epoch {stage_two['ftG']} (shaded), with weights "
