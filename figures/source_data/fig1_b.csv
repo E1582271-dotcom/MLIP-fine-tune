@@ -1,27 +1,26 @@
-kind,part,title,text,x0_mm,y0_mm,x1_mm,y1_mm
-step,,Structure,Li6PS5Cl; 52 atoms (a); 416 atoms (2x2x2),0,1,20,18
-step,,"MD, universal potentials","MACE-MP-0 small (foundation); MatterSim; 52 atoms: 50, 100, 150 ps; 416 atoms: 200 ps; 600, 800, 1000 K",25,1,70,18
-comparison,A,Against AIMD,Li D at 600-1000 K; Fig. 2,73,1,94,13.5
-note,,measured sigma (disordered polycrystals): context only,,83.5,14.3,83.5,14.3
-step,,AIMD of the same ordered cell,Deng et al. 2017; 52 atoms; a = 10.10 Å; 600-1200 K; 100 ps per T; Ext. Data Fig. 9,98,1,118,77
-arrow,,,"(20, 9.5) -> (25, 9.5)",20,9.5,25,9.5
-arrow,,,"(70, 9.5) -> (73, 9.5)",70,9.5,73,9.5
-arrow,,,"(98, 9.5) -> (94, 9.5)",98,9.5,94,9.5
-step,,27 configurations,frames 100-900; 9 per temperature,30,25,47,39
-step,,DFT labels,"QE 7.1, PBE; Gamma point; 2x2x2 k-points",51,25,69,39
-step,,Fine-tunes of MACE-MP-0,Gamma labels; 2x2x2 labels,73,25,94,39
-arrow,,"MACE-MP-0, 52 atoms, 50 ps","(38.5, 18) -> (38.5, 25)",38.5,18,38.5,25
-arrow,,,"(47, 32) -> (51, 32)",47,32,51,32
-arrow,,,"(69, 32) -> (73, 32)",69,32,73,32
-comparison,D,Cl excess,Li6-xPS5-xCl1+x; x = 0-0.75; MACE-MP-0; 392-416 atoms; 150 ps; Ext. Data Fig. 8,0,25,20,47
-arrow,,,"(10, 18) -> (10, 25)",10,18,10,25
-comparison,B,Against DFT labels,forces and energies; held-out configurations; Fig. 3,30,45,69,60
-step,,Fine-tuned MD,"416 atoms, 200 ps; same protocol; Gamma: stage 2; 2x2x2: stage 1",76.6,45,94,60
-arrow,,,"(60, 39) -> (60, 45)",60,39,60,45
-arrow,,,"(74.6, 39) -> (74.6, 52.5) -> (69, 52.5)",74.6,39,69,52.5
-arrow,,,"(85.3, 39) -> (85.3, 45)",85.3,39,85.3,45
-comparison,C,Against the foundation model and AIMD,"fine-tuned MD against MACE-MP-0 MD (416 atoms, 200 ps); and against AIMD: Li D at 600-1000 K; Fig. 4",30,66,94,77
-arrow,,,"(85.3, 60) -> (85.3, 66)",85.3,60,85.3,66
-arrow,,,"(27.5, 18) -> (27.5, 71.5) -> (30, 71.5)",27.5,18,30,71.5
-arrow,,,"(98, 71.5) -> (94, 71.5)",98,71.5,94,71.5
-note,,"Every model is compared with DFT: forces with the DFT labels, Li diffusion with AIMD. Measured conductivities are context only, and never shown next to a fine-tuned model.",,0,79,118,86
+kind,figure,title,text,x0_mm,y0_mm,x1_mm,y1_mm
+step,,Structure,Li6PS5Cl; 52 atoms (a); 416 atoms (2x2x2),0,1,19,14.5
+step,,"MD, universal potentials","MACE-MP-0 small (foundation); MatterSim; 52 atoms: 50, 100, 150 ps; 416 atoms, 200 ps; 600, 800, 1000 K",24,1,96,14.5
+step,,AIMD of the same ordered cell,Deng et al. 2017; 52 atoms; a = 10.10 Å; 600-1200 K; 100 ps per T; Ext. Data Fig. 8,101,1,123,35.5
+step,,Cl excess,Li6-xPS5-xCl1+x; x = 0-0.75; MACE-MP-0; 392-416 atoms; 150 ps; Ext. Data Fig. 9,0,21,19,57
+step,,27 configurations,frames 100-900; 9 per temperature,28.5,21,47,35.5
+step,,DFT labels,"QE 7.1, PBE; Gamma point; 2x2x2 k-points",51,21,69,35.5
+step,,Fine-tunes of MACE-MP-0,Gamma labels; 2x2x2 labels,73,21,96,35.5
+step,,Fine-tuned MD,"416 atoms, 200 ps; 600, 800, 1000 K; Gamma: stage 2; 2x2x2: stage 1",76.6,42,96,57
+comparison,Fig. 2,Against DFT labels,forces and energies; MACE-MP-0 and both fine-tunes; held-out configurations,28.5,42,69,57
+comparison,Fig. 3,Against AIMD,Li D at 600-1000 K; all four models; no extrapolation,101,42,123,76
+comparison,Fig. 4,Fine-tuned against foundation,"fine-tuned MD against MACE-MP-0 MD; pre-registered reading; same MD protocol; 416 atoms, 200 ps, 600-1000 K",28.5,63.5,96,76
+arrow,,,"(19, 7.75) -> (24, 7.75)",19,7.75,24,7.75
+arrow,,,"(9.5, 14.5) -> (9.5, 21)",9.5,14.5,9.5,21
+arrow,,"MACE-MP-0, 52 atoms, 50 ps","(37.75, 14.5) -> (37.75, 21)",37.75,14.5,37.75,21
+arrow,,,"(47, 28.25) -> (51, 28.25)",47,28.25,51,28.25
+arrow,,,"(69, 28.25) -> (73, 28.25)",69,28.25,73,28.25
+arrow,,,"(60, 35.5) -> (60, 42)",60,35.5,60,42
+arrow,,,"(74.6, 35.5) -> (74.6, 49.5) -> (69, 49.5)",74.6,35.5,69,49.5
+arrow,,,"(86.3, 35.5) -> (86.3, 42)",86.3,35.5,86.3,42
+arrow,,,"(112, 35.5) -> (112, 42)",112,35.5,112,42
+arrow,,,"(96, 7.75) -> (98.5, 7.75) -> (98.5, 45) -> (101, 45)",96,7.75,101,45
+arrow,,,"(96, 51) -> (101, 51)",96,51,101,51
+arrow,,,"(86.3, 57) -> (86.3, 63.5)",86.3,57,86.3,63.5
+arrow,,,"(25.8, 14.5) -> (25.8, 69.75) -> (28.5, 69.75)",25.8,14.5,28.5,69.75
+note,,"Every model is compared with DFT: forces with the DFT labels, Li diffusion with AIMD of the same ordered cell.",,0,77.5,123,84

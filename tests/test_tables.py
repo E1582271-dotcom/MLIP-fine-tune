@@ -12,7 +12,7 @@ from mlipft.figures import registry
 
 # Phase-2 switch: while False, measured values left in the source data of figures not yet migrated are an
 # expected failure (xfail) listing them; phase 2 sets it to True.
-STRICT_SOURCE_DATA = False
+STRICT_SOURCE_DATA = True
 
 FIELDS = ("Ea_eV", "Ea_err_eV", "sigma300_mS_cm", "sigma300_min_mS_cm", "sigma300_max_mS_cm", "R2", "slope",
           "intercept", "slope_err", "intercept_err")

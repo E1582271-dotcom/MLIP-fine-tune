@@ -16,7 +16,8 @@ First public release, rebuilt from the raw files of the July 2026 simulations.
   600-1000 K (amendment A3); measured conductivities kept as context only.
 - Five models evaluated against both DFT label sets, per atom; the model behind each fine-tuned MD run
   identified from the forces stored in its trajectory.
-- Four main and eight Extended Data figures with per-panel source data; generated results,
+- Four main and nine Extended Data figures with per-panel source data, built from one encoding
+  vocabulary and checked automatically for alignment, closed frames and overlaps; generated results,
   reproduction and figure documents.
 - The fine-tuned models are compared with DFT (labels and AIMD) and with the foundation model only, not
   with experiment.

@@ -1,4 +1,0 @@
-model,md_model,series,labels,element,subset,softening_slope,temperature_K,kinisi_D_ratio_to_aimd,kinisi_D_ratio_err
-foundation,foundation,mace_416_200,k222,Li,All27,0.851865,1000,3.20763,0.60162
-ftG,ftG_s2,ftG_416_200,k222,Li,All27,0.989592,1000,1.75599,0.331525
-ftK,ftK_s1,ftK_416_200,k222,Li,All27,0.98446,1000,1.86464,0.350724

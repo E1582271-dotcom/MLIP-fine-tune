@@ -146,6 +146,9 @@ def test_gate_modes(monkeypatch, capsys):
     fig, L = _clean()
     L.fig.axes[0].text(1.0, 7.0, "too large", fontsize=9)
     monkeypatch.delenv("MLIPFT_QA", raising=False)
+    with pytest.raises(qa.FigureQAError, match="too large"):
+        qa.gate(L, name="gated")  # strict by default
+    monkeypatch.setenv("MLIPFT_QA", "warn")
     findings = qa.gate(L, name="gated")
     assert findings and L.findings == findings and L.name == "gated"
     assert "QA gated:" in capsys.readouterr().err

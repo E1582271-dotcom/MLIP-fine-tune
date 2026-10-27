@@ -390,28 +390,3 @@ def frameless(ax):
     ax.tick_params(which="both", length=0)
     qa.FRAMELESS.add(ax)
     return ax
-
-
-# --------------------------------------------------------------- legacy, removed in phase 2
-
-no_frame = frameless  # legacy, removed in phase 2
-SECONDARY_FADE = 0.55  # legacy, removed in phase 2
-
-
-def model_color(model: str, faded: bool = False) -> str:  # legacy, removed in phase 2
-    color = style.MODEL_COLORS[model]
-    return lighten(color, SECONDARY_FADE) if faded else color
-
-
-def marker_kwargs(model: str, marker: str = "o", size: float = 3.5, edge: float = 0.7, alpha: float = 1.0,
-                  faded: bool = False) -> dict:  # legacy, removed in phase 2: use model_style
-    color = model_color(model, faded)
-    return {"marker": marker, "markersize": size, "markeredgewidth": edge, "markeredgecolor": color,
-            "markerfacecolor": color if filled(model) else style.WHITE, "linestyle": "none", "alpha": alpha}
-
-
-def scatter_kwargs(model: str, size: float = 9.0, edge: float = 0.6, alpha: float = 1.0,
-                   faded: bool = False) -> dict:  # legacy, removed in phase 2: use model_scatter
-    color = model_color(model, faded)
-    return {"s": size, "linewidths": edge, "edgecolors": color,
-            "facecolors": color if filled(model) else style.WHITE, "alpha": alpha}

@@ -1,5 +1,8 @@
-series,composition,cl_content,source,Ea_eV,Ea_err_eV
-clx000_416_150,Li6PS5Cl,1,published,0.256382,0.0112405
-clx025_408_150,Li5.75PS4.75Cl1.25,1.25,published,0.208221,0.0108702
-clx050_400_150,Li5.5PS4.5Cl1.5,1.5,published,0.163636,0.0107422
-clx075_392_150,Li5.25PS4.25Cl1.75,1.75,published,0.148367,0.0114026
+group,row,reference,y,sigma300_mS_cm,sigma300_low_mS_cm,sigma300_high_mS_cm
+"published AIMD extrapolation, ordered cell",Deng et al. 2017 (quoted by Baktash et al. 2020),deng2017_sigma300,1,0.002,0.002,0.002
+"published AIMD extrapolation, ordered cell",de Klerk et al. 2016 (quoted by Baktash et al. 2020),deklerk2016_sigma300,2,290,290,290
+"published AIMD extrapolation, ordered cell",Baktash et al. 2020,baktash2020,3,,0.06,0.3
+"universal-potential extrapolation, this study (published fit)",MACE-MP-0,mace_416_200,5.5,5.5463,4.20734,7.31137
+"universal-potential extrapolation, this study (published fit)",MatterSim,mattersim_416_200,6.5,0.348574,0.248512,0.488926
+"measured, disordered polycrystal (context only)",Wang et al. 2018,wang2018,9,3.15,3.15,3.15
+"measured, disordered polycrystal (context only)",compiled range (Li et al. 2025),li2025_compiled,10,,0.06,1.1

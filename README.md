@@ -14,7 +14,7 @@ The calibration project of a computational portfolio on sulfide solid electrolyt
 
 Measured conductivities are of S/Cl-disordered polycrystals, not of the ordered cell simulated here, so they appear only as context.
 
-![Study design](figures/main/fig1_design.png)
+![Fig. 1: the 52-atom ordered Li6PS5Cl cell, the study design (forces against DFT labels, Li diffusion against AIMD, fine-tuned against foundation) and the 42 MD runs](figures/main/fig1_design.png)
 
 ## Findings
 
@@ -74,9 +74,11 @@ Measured conductivities are of S/Cl-disordered polycrystals, not of the ordered 
 
 D comes from kinisi (fit from 30 % of each run); σ(300 K) is a weighted Arrhenius extrapolation from 600, 800 and 1000 K, with the 1σ interval of the fit in brackets. Every table: [docs/results.md](docs/results.md). Every figure with its caption: [docs/figures.md](docs/figures.md).
 
-![Fine-tuned models against DFT](figures/main/fig3_dft.png)
+![Fig. 3: Li diffusion coefficient of MACE-MP-0, MatterSim and both fine-tuned models against AIMD of the same ordered cell at 600-1200 K, the ratio to AIMD at each temperature, Li mean-squared displacements, and force softening against the diffusion overestimate](figures/main/fig3_diffusion.png)
 
-![What fine-tuning changes in Li transport](figures/main/fig4_transport.png)
+![Fig. 2: force parity of the foundation and the two fine-tuned models against the 2x2x2 DFT labels, force errors of all five models against both label sets with the label floor, per-element errors and centred energy errors](figures/main/fig2_forces.png)
+
+![Fig. 4: the pre-registered comparison of the fine-tuned runs with the foundation run, the ratio of diffusion coefficients, the training-stage confound and the pressure shift](figures/main/fig4_finetune.png)
 
 ## Approach
 
@@ -148,7 +150,7 @@ Everything is rebuilt from the committed `data/` in about a minute with numpy, p
 | [docs/data.md](docs/data.md), [docs/provenance.md](docs/provenance.md) | What every file holds; where every number comes from, and facts established in the rebuild |
 | [data/](data/) | Published July record, structures, MD, DFT labels and QE runs, model predictions, references |
 | [results/](results/) | Tables built from `data/` by `python -m mlipft tables` |
-| [figures/](figures/) | Four main and eight Extended Data figures (PDF, SVG, PNG) with per-panel source data |
+| [figures/](figures/) | Four main and nine Extended Data figures (PDF, SVG, PNG) with per-panel source data |
 | [src/mlipft/](src/mlipft/) | Transport estimators, DFT agreement, tables, figures, the ingest of the raw files |
 | [generation/](generation/), [ingest/](ingest/) | Code that produced the raw data in July 2026; the cluster job of the re-analysis |
 

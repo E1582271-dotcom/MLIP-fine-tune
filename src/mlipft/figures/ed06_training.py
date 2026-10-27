@@ -1,4 +1,4 @@
-"""Extended Data Fig. 6: training records of the two fine-tunes.
+"""Training records of the two fine-tunes (Extended Data, registry key "training").
 
 a, validation force RMSE and b, validation energy RMSE against epoch, as logged by MACE, for the
 fine-tune on Gamma labels and the fine-tune on 2x2x2 labels, each on its own validation set and
@@ -20,13 +20,15 @@ from . import common, registry, style
 KEY = "training"
 NAME = registry.number(KEY)
 PANELS = "abc"
-WIDTH, HEIGHT = 183.0, 108.0
+WIDTH, HEIGHT = 183.0, 111.0
 RECORDS = {"ftG": paths.MODELS / "training" / "ftG_record.jsonl", "ftK": paths.MODELS / "training" / "ftK_record.jsonl"}
 EVALUATION = paths.MODELS / "evaluation.json"
 REPRODUCTION = paths.MODELS / "log_reproduction.csv"
 CONFIGS = paths.DFT / "configs.csv"
 LABELS = {"ftG": "gamma", "ftK": "k222"}
 START_X = -9.0  # where the error before training (epoch null in the record) is drawn
+START_SIZE = 3.2  # marker of MACE-MP-0 before fine-tuning
+SELECTED_SIZE = 4.0  # markers of the selected models
 
 
 def _eval_lines(run: str) -> pd.DataFrame:
@@ -59,7 +61,7 @@ def _curves(ax, evaluation: dict, records: dict, column: str, start: bool) -> li
     rows = []
     stage_two = min(evaluation[run]["stage_two_start_epoch"] for run in RECORDS)
     last = max(records[run]["epoch"].max() for run in RECORDS)
-    ax.axvspan(stage_two - 0.5, last + 0.5, color=style.LIGHT_GREY, alpha=0.6, lw=0, zorder=0)
+    ax.axvspan(stage_two - 0.5, last + 0.5, **style.BAND_FILL)
     for run, record in records.items():
         color = style.MODEL_COLORS[run]
         trained = record[record["epoch"].notna()]
@@ -70,15 +72,15 @@ def _curves(ax, evaluation: dict, records: dict, column: str, start: bool) -> li
             value = float(before[column].iloc[0])
             ax.plot([START_X, trained["epoch"].iloc[0]], [value, trained[column].iloc[0]], color=color, lw=0.6,
                     ls=(0, (1.5, 1.5)), zorder=2)
-            ax.plot(START_X, value, marker="D", markersize=3.2, markerfacecolor=style.MODEL_COLORS["foundation"],
-                    markeredgecolor=color, markeredgewidth=0.7, linestyle="none", zorder=4)
+            ax.plot(START_X, value, **common.model_style("foundation", size=START_SIZE, zorder=4))
             rows.append({"fine_tune": run, "epoch": "before training (MACE-MP-0)", column: value})
         for stage, epoch in _selected(evaluation, run).items():
             value = float(trained.loc[trained["epoch"] == epoch, column].iloc[0])
-            ax.plot(epoch, value, **common.marker_kwargs(f"{run}_{stage}", "o", 4.0, edge=0.8), zorder=5)
-            rows.append({"fine_tune": run, "epoch": f"selected {stage} ({epoch})", column: value})
+            ax.plot(epoch, value, **common.model_style(f"{run}_{stage}", size=SELECTED_SIZE, edge=0.8, zorder=5))
+            rows.append({"fine_tune": run, "model": f"{run}_{stage}", "epoch": f"selected {stage} ({epoch})",
+                         column: value})
     ax.text(stage_two + 1.0, 0.98, "stage two", transform=ax.get_xaxis_transform(), ha="left", va="top",
-            fontsize=style.SMALL, color="#555555")
+            fontsize=style.SMALL, color=style.CONTEXT_TEXT)
     ax.set_xlim(START_X - 4.0, last + 2.0)
     ticks = [0, 20, 40, 60, 80, 100, 120]
     ax.set_xticks([START_X, *ticks], ["start", *[str(t) for t in ticks]] if start else ["", *[str(t) for t in ticks]])
@@ -107,24 +109,23 @@ def _panel_b(ax, evaluation: dict, records: dict) -> None:
 
 
 def _legend(fig, layout: common.Layout, evaluation: dict, top: float) -> None:
+    """Three columns: the two training runs and the stage-two band; MACE-MP-0 and the Gamma selections; the
+    2x2x2 selections."""
     handles = [Line2D([0], [0], color=style.MODEL_COLORS[run], lw=0.9,
                       label=f"{'Gamma' if run == 'ftG' else '2x2x2'} fine-tune (validation: {_valid_text(run, evaluation)})")
                for run in RECORDS]
-    handles.append(Line2D([0], [0], marker="D", markersize=3.2, markerfacecolor=style.MODEL_COLORS["foundation"],
-                          markeredgecolor=style.GREY, linestyle="none",
-                          label="MACE-MP-0 before fine-tuning (forces only)"))
-    handles.append(Line2D([0], [0], marker="o", markersize=4.0, markerfacecolor="white", markeredgecolor="black",
-                          markeredgewidth=0.8, linestyle="none", label="selected stage-one model"))
-    handles.append(Line2D([0], [0], marker="o", markersize=4.0, markerfacecolor="black", markeredgecolor="black",
-                          linestyle="none", label="selected stage-two model"))
-    handles.append(Patch(facecolor=style.LIGHT_GREY, alpha=0.6, edgecolor="none", label="stage two"))
+    handles.append(Patch(facecolor=style.BAND, edgecolor="none", label="stage two of training"))
+    handles.append(common.handle(common.model_style("foundation", size=START_SIZE),
+                                 "MACE-MP-0 before fine-tuning (forces only)"))
+    handles += [common.handle(common.model_style(model, size=SELECTED_SIZE, edge=0.8),
+                              f"selected: {common.SHORT_LABELS[model]}")
+                for model in ("ftG_s1", "ftG_s2", "ftK_s1", "ftK_s2")]
     fig.legend(handles=handles, loc="upper left", bbox_to_anchor=(layout.x(14.0), layout.y(top)), ncol=3,
-               fontsize=style.SMALL, handletextpad=0.4, columnspacing=1.6, labelspacing=0.5, borderaxespad=0.0,
+               fontsize=style.SMALL, handletextpad=0.4, columnspacing=2.4, labelspacing=0.5, borderaxespad=0.0,
                frameon=False)
 
 
 def _panel_c(ax, evaluation: dict, reproduction: pd.DataFrame, configs: pd.DataFrame) -> None:
-    common.no_frame(ax)
     ax.set_xticks([])
     ax.set_yticks([])
     ax.set_xlim(0, 1)
@@ -137,10 +138,10 @@ def _panel_c(ax, evaluation: dict, reproduction: pd.DataFrame, configs: pd.DataF
             fontsize=style.SMALL)
     ax.text((0.70 + 0.81) / 2, -0.35, "Training force RMSE (meV/Å)", ha="center", va="bottom", fontsize=style.SMALL)
     for x0, x1 in ((0.40, 0.61), (0.65, 0.86)):
-        ax.plot([x0, x1], [-0.25, -0.25], color="black", lw=0.4)
+        ax.plot([x0, x1], [-0.25, -0.25], color=style.BLACK, lw=0.4)
     for x, ha, text in columns:
         ax.text(x, 0.55, text, ha=ha, va="center", fontsize=style.SMALL, fontweight="bold", linespacing=1.1)
-    ax.plot([0, 1], [1.25, 1.25], color="black", lw=0.5)
+    ax.plot([0, 1], [1.25, 1.25], color=style.BLACK, lw=0.5)
     valid_names = {"ftG": f"V5, {common.LABEL_SET_NAMES['gamma']}", "ftK": f"H3, {common.LABEL_SET_NAMES['k222']}"}
     n_train = {run: int((configs[f"{run}_split"] == "train").sum()) for run in ("ftG", "ftK")}
     rows = []
@@ -161,14 +162,12 @@ def _panel_c(ax, evaluation: dict, reproduction: pd.DataFrame, configs: pd.DataF
                  "-" if pd.isna(row.train_evaluated_by_log) else
                  f"{int(row.train_evaluated_by_log)} of {n_train[run]}"
                  + ("*" if int(row.train_evaluated_by_log) < n_train[run] else "")]
-        color = style.MODEL_COLORS[model]
-        ax.plot(-0.012, y, marker="o", markersize=3.0, markeredgewidth=0.6, markeredgecolor=color,
-                markerfacecolor=color if common.filled(model) else "white", clip_on=False)
+        ax.plot(-0.012, y, **common.model_style(model, size=3.0, edge=0.6, clip_on=False))
         for (x, ha, _), text in zip(columns, cells):
             ax.text(x + (0.008 if ha == "left" else 0.0), y, text, ha=ha, va="center", fontsize=style.SMALL)
         rows.append(dict(zip(["model", "epoch", "validation_set", "logged_valid_meV_A", "reevaluated_valid_meV_A",
                               "logged_train_meV_A", "reevaluated_train_meV_A", "train_configs_in_log"], cells)))
-    ax.plot([0, 1], [n_rows + 1.5, n_rows + 1.5], color="black", lw=0.5)
+    ax.plot([0, 1], [n_rows + 1.5, n_rows + 1.5], color=style.BLACK, lw=0.5)
     ax.text(1.0, n_rows + 1.75, "* MACE drops the last incomplete training batch (batch size "
             f"{evaluation['ftG']['batch_size']}); protocol amendment A1", ha="right", va="top", fontsize=style.SMALL)
     style.save_source(pd.DataFrame(rows), NAME, "c")
@@ -178,15 +177,15 @@ def make() -> list[Path]:
     evaluation, records, reproduction, configs = _load()
     fig, L = common.new_figure(WIDTH, HEIGHT)
     _legend(fig, L, evaluation, 3.0)
-    ax_a = L.axes(14.0, 16.0, 74.0, 42.0)
+    ax_a = L.axes(14.0, 19.0, 84.0, 42.0, row="curves", col="left")  # the hero panel
     _panel_a(ax_a, evaluation, records)
-    ax_b = L.axes(107.0, 16.0, 74.0, 42.0)
+    ax_b = L.axes(116.0, 19.0, 65.0, 42.0, row="curves")
     _panel_b(ax_b, evaluation, records)
-    ax_c = L.axes(12.0, 74.0, 169.0, 32.0)
+    ax_c = L.axes(12.0, 77.0, 169.0, 32.0, frame="none")
     _panel_c(ax_c, evaluation, reproduction, configs)
-    L.letter(ax_a, "a", 3.0, 15.0)
-    L.letter(ax_b, "b", 96.0, 15.0)
-    L.letter(ax_c, "c", 3.0, 73.0)
+    L.letter(ax_a, "a", 3.0, 18.0)
+    L.letter(ax_b, "b", 105.0, 18.0)
+    L.letter(ax_c, "c", 3.0, 76.0)
     return L.save(*registry.target(KEY))
 
 
@@ -219,27 +218,34 @@ def _caption() -> str:
         f"{g['stage_two_loss_weights'][0]:g} and {g['stage_two_loss_weights'][1]:g}, learning rate "
         f"{g['stage_two_learning_rate']:g} and stochastic weight averaging). "
         f"**a**, Validation force RMSE and **b**, validation energy RMSE per atom against epoch, as written by "
-        f"MACE. The two curves use different validation sets and different labels and are not directly "
-        f"comparable: the Gamma fine-tune is validated on {g['n_valid']} configurations (V5 = H3 + H2) against the "
-        f"Gamma labels, the 2x2x2 fine-tune on {k['n_valid']} (H3) against the 2x2x2 labels. Diamonds, the "
-        f"foundation model before fine-tuning on the same validation sets ({tables['ftG']['foundation_valid_rmse_f_meV_A']:.1f} "
-        f"and {tables['ftK']['foundation_valid_rmse_f_meV_A']:.1f} meV/A). The energy error before training is not "
-        f"shown because it is an absolute energy error of the foundation model (it depends on the reference "
-        f"energies), which this study does not report. Open circles, the selected stage-one models (epoch "
-        f"{sel['ftG']['s1']} for both; {tables['ftG']['s1']['valid_rmse_f_meV_A']:g} and "
-        f"{tables['ftK']['s1']['valid_rmse_f_meV_A']:g} meV/A); filled circles, the selected stage-two models "
-        f"(epochs {sel['ftG']['s2']} and {sel['ftK']['s2']}; {tables['ftG']['s2']['valid_rmse_f_meV_A']:g} and "
-        f"{tables['ftK']['s2']['valid_rmse_f_meV_A']:g} meV/A). The switch to the stage-two weights and learning "
-        f"rate raises the force error transiently (to {spike['ftG']:.0f} and {spike['ftK']:.0f} meV/A). "
+        f"MACE: one training run per fine-tune, each point a single evaluation of the whole validation set, so "
+        f"there are no error bars. The two curves use different validation sets and different labels and are not "
+        f"directly comparable: the Gamma fine-tune is validated on n = {g['n_valid']} configurations (V5 = H3 + H2) "
+        f"against the Gamma labels, the 2x2x2 fine-tune on n = {k['n_valid']} (H3) against the 2x2x2 labels. Red "
+        f"circles at 'start', MACE-MP-0 small before fine-tuning on the same validation sets "
+        f"({tables['ftG']['foundation_valid_rmse_f_meV_A']:.1f} and "
+        f"{tables['ftK']['foundation_valid_rmse_f_meV_A']:.1f} meV/A; dotted, joined to the first epoch). The "
+        f"energy error before training is not drawn because it is an absolute energy error of the foundation model "
+        f"(it depends on the reference energies), which this study does not report. Large circles, the selected "
+        f"models, coloured by model as in the table (c); open, stage one (epoch {sel['ftG']['s1']} for both; "
+        f"{tables['ftG']['s1']['valid_rmse_f_meV_A']:g} and {tables['ftK']['s1']['valid_rmse_f_meV_A']:g} meV/A); "
+        f"filled, stage two (epochs {sel['ftG']['s2']} and {sel['ftK']['s2']}; "
+        f"{tables['ftG']['s2']['valid_rmse_f_meV_A']:g} and {tables['ftK']['s2']['valid_rmse_f_meV_A']:g} meV/A). "
+        f"The switch to the stage-two weights and learning rate raises the force error transiently (to "
+        f"{spike['ftG']:.0f} and {spike['ftK']:.0f} meV/A). Logarithmic energy axis in b. "
         f"**c**, Errors in the training logs against the same errors re-evaluated from the model files in float64 "
-        f"on a CPU. Validation errors agree to within {max_valid_diff:.2f} meV/A (the logs print one decimal). "
+        f"on a CPU, as root-mean-square errors over the n configurations of each set (validation n = "
+        f"{g['n_valid']} for V5 and {k['n_valid']} for H3; training n = {g['n_train']} and {k['n_train']}). "
+        f"Validation errors agree to within {max_valid_diff:.2f} meV/A (the logs print one decimal). "
         f"The logged training errors of the Gamma fine-tune cover {int(partial['train_evaluated_by_log'])} of its "
         f"{g['n_train']} training configurations, because MACE drops the last incomplete batch of the shuffled "
         f"training loader (asterisks; protocol amendment A1): {matching[0]} and {matching[1]} of the {matching[2]} "
         f"subsets of {int(partial['train_evaluated_by_log'])} configurations reproduce the logged stage-one and "
         f"stage-two values. The 2x2x2 fine-tune has {k['n_train']} training "
         f"configurations, a multiple of the batch size, and its logged training errors cover all of them. "
-        f"Model names as in Fig. 3. "
+        + common.naming_sentence(configs) + " The two models that drove MD differ in stage ("
+        + "; ".join(common.SHORT_LABELS[f"{run}_{style.MD_STAGE[run]}"] for run in RECORDS)
+        + f"); the effect of the stage on the force error is shown in {registry.label('finetune')}. "
         + common.sources([RECORDS["ftG"], RECORDS["ftK"], EVALUATION, REPRODUCTION, CONFIGS])
     )
 

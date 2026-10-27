@@ -5,6 +5,11 @@ on:
   pull_request:
   workflow_dispatch:
 
+# Figures are checked for overlaps and alignment where they are made; Linux font metrics differ, so the
+# check only warns here.
+env:
+  MLIPFT_QA: warn
+
 jobs:
   lint:
     runs-on: ubuntu-latest

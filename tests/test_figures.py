@@ -17,9 +17,9 @@ EXTENSIONS = ("pdf", "svg", "png")
 
 # Phase-2 switches. While a switch is False, a violation of its check is reported as an expected failure
 # (xfail) that lists what is left; phase 2 sets every switch to True.
-STRICT_PANELS = False  # every figure module defines PANELS
-STRICT_FILES = False  # figures/main, figures/extended and figures/source_data hold exactly the registry's files
-STRICT_SOURCE = False  # no hard-coded figure number, hex colour or OKABE_ITO in a figure module
+STRICT_PANELS = True  # every figure module defines PANELS
+STRICT_FILES = True  # figures/main, figures/extended and figures/source_data hold exactly the registry's files
+STRICT_SOURCE = True  # no hard-coded figure number, hex colour or OKABE_ITO in a figure module
 
 
 def _png_size(path):

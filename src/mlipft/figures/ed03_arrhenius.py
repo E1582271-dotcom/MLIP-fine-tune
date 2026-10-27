@@ -1,11 +1,12 @@
-"""Extended Data Fig. 3: the Arrhenius fit of every series.
+"""The Arrhenius fit of every series (Extended Data, registry key "arrhenius").
 
 One panel per series (14), grouped by part: A, the universal potentials on Li6PS5Cl (52-atom
 tiers and the 416-atom production runs); C, the two fine-tuned models; D, the Cl-excess series
 under MACE-MP-0. Each panel shows the per-run conductivity with its kinisi uncertainty, the quoted
 weighted fit (published value where one exists, otherwise the re-analysis) extrapolated to 300 K
-with its 1-sigma band, and a residual strip in units of each point's ln-space uncertainty. No
-measured value is shown: the figure contains the fine-tuned series.
+with its 1-sigma band, and a residual strip in units of each point's ln-space uncertainty. Colour
+by model (Cl content for the Cl-excess series), marker shape by run type, open markers for the stage-one model.
+No measured value is shown: the figure contains the fine-tuned series.
 """
 from __future__ import annotations
 
@@ -23,22 +24,25 @@ from . import common, registry, style
 
 KEY = "arrhenius"
 NAME = registry.number(KEY)
+PANELS = "abcdefghijklmn"
 WIDTH, HEIGHT = 183.0, 236.0
 FITS = paths.RESULTS / "fits.csv"
 TRANSPORT = paths.MD / "transport.csv"
 SOURCE_TEXT = {"published": "published fit", "reanalysis": "re-analysis fit"}
 # Rows of the grid: (heading, series per column)
 ROWS = (
-    ("Part A. Universal potentials, Li$_6$PS$_5$Cl", ("mace_52_050", "mace_52_100", "mace_52_150", "mace_416_200")),
+    ("Universal potentials, Li$_6$PS$_5$Cl", ("mace_52_050", "mace_52_100", "mace_52_150", "mace_416_200")),
     (None, ("mattersim_52_050", "mattersim_52_100", "mattersim_52_150", "mattersim_416_200")),
-    ("Part C. Fine-tuned MACE, Li$_6$PS$_5$Cl (same protocol as the 416-atom production runs)",
+    ("Fine-tuned MACE-MP-0, Li$_6$PS$_5$Cl (same protocol as the 416-atom production runs)",
      ("ftG_416_200", "ftK_416_200")),
-    ("Part D. Cl-excess series Li$_{6-x}$PS$_{5-x}$Cl$_{1+x}$, MACE-MP-0", ("clx000_416_150", "clx025_408_150",
+    ("Cl-excess series Li$_{6-x}$PS$_{5-x}$Cl$_{1+x}$, MACE-MP-0", ("clx000_416_150", "clx025_408_150",
                                                                     "clx050_400_150", "clx075_392_150")),
 )
 TITLES = {"foundation": "MACE-MP-0", "mattersim": "MatterSim", "ftG": "Fine-tuned, Gamma labels",
           "ftK": "Fine-tuned, 2x2x2 labels"}
-X_LIMITS = (0.85, 3.55)
+X_LIMITS = (0.75, 3.55)
+LABELLED_TEMPERATURES = (1000, 600, T_REF_K)  # written above the data columns (800 K has no room)
+MARKER_SIZE = 2.8
 Y_LIMITS = (0.08, 2.0e4)
 Z_LIMIT = 3.6
 
@@ -58,6 +62,23 @@ def _color(fit: pd.Series) -> str:
     if fit["part"] == "D":
         return style.CL_COLORS[float(fit["cl_content"])]
     return style.MODEL_COLORS[fit["model"]]
+
+
+def _kind(fit: pd.Series) -> str:
+    """Run type of a series (a key of ``style.RUN_MARKERS``)."""
+    if fit["part"] == "D":
+        return "clexcess"
+    return "cell_52" if int(fit["n_atoms"]) == 52 else "production"
+
+
+def _marker(fit: pd.Series, size: float = MARKER_SIZE, **overrides) -> dict:
+    """``ax.plot`` keyword arguments of the series' markers: colour by model (Cl content for the Cl-excess series), shape by run
+    type, open for the stage-one model."""
+    kwargs = common.model_style(fit["model"], _kind(fit), size=size, edge=0.6, **overrides)
+    if fit["part"] == "D":
+        color = _color(fit)
+        kwargs.update(color=color, markeredgecolor=color, markerfacecolor=color)
+    return kwargs
 
 
 def _title(fit: pd.Series) -> tuple[str, str]:
@@ -102,6 +123,7 @@ def _points(transport: pd.DataFrame, fit: pd.Series, series: str) -> pd.DataFram
 
 def _panel(ax, res_ax, fit: pd.Series, points: pd.DataFrame, first_column: bool) -> pd.DataFrame:
     color = _color(fit)
+    x_points = points["inv_temperature_1000_per_K"]
     x300 = 1000.0 / T_REF_K
     x_split = 1000.0 / min(TEMPERATURES)
     x = np.concatenate([np.linspace(1000.0 / max(TEMPERATURES), x_split, 30)[:-1], np.linspace(x_split, x300, 60)])
@@ -110,11 +132,13 @@ def _panel(ax, res_ax, fit: pd.Series, points: pd.DataFrame, first_column: bool)
     ax.fill_between(x, low, high, color=color, alpha=0.18, lw=0, zorder=1)
     ax.plot(x[x <= x_split], sigma[x <= x_split], color=color, lw=0.8, zorder=3)
     ax.plot(x[x >= x_split], sigma[x >= x_split], color=color, lw=0.8, ls=(0, (3, 1.5)), zorder=3)
-    ax.errorbar(points["inv_temperature_1000_per_K"], points["sigma_mS_cm"], yerr=points["kinisi_sigma_std_mS_cm"],
-                fmt="o", color=color, markersize=2.8, markeredgewidth=0.0, elinewidth=0.6, capsize=1.2, zorder=4)
+    ax.errorbar(x_points, points["sigma_mS_cm"], yerr=points["kinisi_sigma_std_mS_cm"], fmt="none", ecolor=color,
+                elinewidth=0.6, capsize=1.2, zorder=4)
+    ax.plot(x_points, points["sigma_mS_cm"], **_marker(fit, zorder=5))
     ax.set_yscale("log")
     ax.set_xlim(*X_LIMITS)
     ax.set_ylim(*Y_LIMITS)
+    common.temperature_labels(ax, LABELLED_TEMPERATURES)
     style.log_ticks(ax, "y")
     ax.set_yticks([0.1, 1, 10, 100, 1000, 10000], ["0.1", "1", "10", "100", "1000", "10000"])
     ax.set_xticks([1, 1.5, 2, 2.5, 3, 3.5])
@@ -126,12 +150,10 @@ def _panel(ax, res_ax, fit: pd.Series, points: pd.DataFrame, first_column: bool)
                         f"$E_a$ {fit['Ea_eV']:.3f} $\\pm$ {fit['Ea_err_eV']:.3f} eV\n{SOURCE_TEXT[fit['source']]}",
             transform=ax.transAxes, ha="left", va="bottom", fontsize=style.SMALL, linespacing=1.3)
 
-    res_ax.axhspan(-1, 1, color=style.LIGHT_GREY, alpha=0.6, lw=0, zorder=0)
-    res_ax.axhline(0, color=style.GREY, lw=0.5, zorder=1)
-    res_ax.vlines(points["inv_temperature_1000_per_K"], 0, points["residual_normalised"], color=color, lw=0.6,
-                  zorder=2)
-    res_ax.plot(points["inv_temperature_1000_per_K"], points["residual_normalised"], "o", color=color,
-                markersize=2.6, markeredgewidth=0.0, zorder=3)
+    res_ax.axhspan(-1, 1, **style.BAND_FILL)
+    res_ax.axhline(0, **style.UNITY_LINE)
+    res_ax.vlines(x_points, 0, points["residual_normalised"], color=color, lw=0.6, zorder=2)
+    res_ax.plot(x_points, points["residual_normalised"], **_marker(fit, size=2.5, zorder=3))
     res_ax.set_xlim(*X_LIMITS)
     res_ax.set_ylim(-Z_LIMIT, Z_LIMIT)
     res_ax.set_yticks([-2, 0, 2])
@@ -157,10 +179,10 @@ def make() -> list[Path]:
     left, width, gap = 14.0, 38.5, 4.0
     main_h, res_h, res_gap = 30.0, 8.5, 1.2
     title_h, heading_h, row_gap = 6.5, 5.0, 9.0
-    letters = iter("abcdefghijklmnopqrstuvwxyz")
+    letters = iter(PANELS)
     written = []
     top = 1.0
-    for heading, row in ROWS:
+    for index, (heading, row) in enumerate(ROWS):
         if heading is not None:
             L.text(1.0, top, heading, ha="left", va="top", fontsize=style.FONT_SIZE, fontweight="bold")
             top += heading_h
@@ -168,35 +190,52 @@ def make() -> list[Path]:
         for column, series in enumerate(row):
             fit = fits.loc[series]
             x0 = left + column * (width + gap)
-            ax = L.axes(x0, panel_top, width, main_h)
-            res_ax = L.axes(x0, panel_top + main_h + res_gap, width, res_h)
+            ax = L.axes(x0, panel_top, width, main_h, row=f"fit{index}", col=f"c{column}")
+            res_ax = L.axes(x0, panel_top + main_h + res_gap, width, res_h, row=f"residual{index}", col=f"c{column}")
             frame = _panel(ax, res_ax, fit, _points(transport, fit, series), column == 0)
             name, detail = _title(fit)
             L.text(x0 + 1.0, panel_top - 3.3, name, ha="left", va="bottom", fontsize=style.FONT_SIZE,
-                   color=_color(fit), fontweight="bold")
+                   fontweight="bold")
             L.text(x0 + 1.0, panel_top - 0.6, detail, ha="left", va="bottom", fontsize=style.SMALL)
             letter = next(letters)
             L.letter(ax, letter, x0 - 0.8 if column else 4.5, panel_top - 2.6)
             written.append(_save_panel(frame, fit, letter))
         if len(row) < 4:
-            _key(L.axes(left + len(row) * (width + gap) + 6.0, panel_top, 2 * width, main_h + res_gap + res_h))
+            _key(L.axes(left + len(row) * (width + gap) + 6.0, panel_top, 2 * width, main_h + res_gap + res_h,
+                        frame="none"))
         top = panel_top + main_h + res_gap + res_h + row_gap
+    if "".join(_letters_used(letters)) != PANELS:
+        raise ValueError("panel letters do not match PANELS")
     return L.save(*registry.target(KEY)) + written
 
 
 def _key(ax) -> None:
-    """What the marks of every panel mean (drawn in the empty part of the part C row)."""
-    ax.axis("off")
-    handles = [Line2D([0], [0], marker="o", color="black", markersize=2.8, markeredgewidth=0.0, linestyle="none",
-                      label="one run at 600, 800 or 1000 K (pymatgen); bar, kinisi 1-sigma"),
-               Line2D([0], [0], color="black", lw=0.8, label="quoted fit of ln($\\sigma$T) against 1/T"),
-               Line2D([0], [0], color="black", lw=0.8, ls=(0, (3, 1.5)), label="the same fit extrapolated to 300 K"),
-               Patch(facecolor="black", alpha=0.18, edgecolor="none", label="1-sigma band of the fit"),
-               Patch(facecolor=style.LIGHT_GREY, alpha=0.6, edgecolor="none",
-                     label="residual strips: +/-1 s.d. of the point")]
+    """What the marks of every panel mean (a frameless axes in the empty part of the fine-tuned row)."""
+    ax.set_xticks([])
+    ax.set_yticks([])
+    glyph = {"color": style.BLACK, "markeredgecolor": style.BLACK, "markerfacecolor": style.BLACK}
+    handles = [common.handle(common.model_style("foundation", "production", size=MARKER_SIZE, **glyph),
+                             "416-atom run at 600, 800 or 1000 K (pymatgen); bar, kinisi 1-sigma"),
+               common.handle(common.model_style("foundation", "cell_52", size=MARKER_SIZE, **glyph), "52-atom run"),
+               common.handle(common.model_style("foundation", "clexcess", size=MARKER_SIZE, **glyph),
+                             "Cl-excess run (Cl content by colour)"),
+               common.handle(common.model_style("ftK", "production", size=MARKER_SIZE, edge=0.6,
+                                                **{**glyph, "markerfacecolor": style.WHITE}),
+                             "open: stage-one model (2x2x2 labels)"),
+               Line2D([0], [0], color=style.BLACK, lw=0.8, label="quoted fit of ln($\\sigma$T) against 1/T"),
+               Line2D([0], [0], color=style.BLACK, lw=0.8, ls=(0, (3, 1.5)),
+                      label="the same fit extrapolated to 300 K"),
+               Patch(facecolor=style.BLACK, alpha=0.18, edgecolor="none", label="1-sigma band of the fit"),
+               Patch(facecolor=style.BAND, edgecolor="none", label="residual strips: +/-1 s.d. of the point")]
     ax.legend(handles=handles, loc="upper left", fontsize=style.SMALL, handlelength=1.6, handletextpad=0.6,
-              labelspacing=0.7, borderaxespad=0.0, title="Every panel", title_fontsize=style.FONT_SIZE,
+              labelspacing=0.55, borderaxespad=0.0, title="Every panel", title_fontsize=style.FONT_SIZE,
               alignment="left")
+
+
+def _letters_used(remaining) -> list[str]:
+    """The panel letters drawn: ``PANELS`` minus those left in the iterator ``remaining``."""
+    left = list(remaining)
+    return [letter for letter in PANELS if letter not in left]
 
 
 def _subscripts(formula: str) -> str:
@@ -221,20 +260,36 @@ def _caption() -> str:
     residuals = pd.concat([_points(transport, fits.loc[s], s) for s in order], ignore_index=True)
     worst = residuals.loc[residuals["residual_normalised"].abs().idxmax()]
     reanalysed = [fits.loc[s, "label"] for s in order if fits.loc[s, "source"] == "reanalysis"]
-    letters = "abcdefghijklmn"
+    runs = transport[transport["series"].isin(order)].groupby("series").size()
+    if set(runs) != {3}:
+        raise ValueError("expected three runs per series")
+    letter = dict(zip(order, PANELS))
+
+    def bold(*series: str) -> str:
+        return ", ".join(f"**{letter[s]}**" for s in series)
+
+    cl = [s for s in order if fits.loc[s, "part"] == "D"]
+    xs = ", ".join(f"{fits.loc[s, 'cl_content'] - 1:.2f}" for s in cl)
     return (
         registry.heading(KEY)
-        + f"**a-{letters[len(order) - 1]}**, One panel per MD series, grouped by part: **a-h**, the universal potentials on "
-        "Li6PS5Cl (part A; MACE-MP-0 top row, MatterSim second row; 52-atom cells run for 50, 100 and 150 ps, which "
-        "are independent trajectories, and the 416-atom, 200-ps production runs); **i**, **j**, the two fine-tuned models "
-        "under the production protocol (part C); **k-n**, the Cl-excess series Li(6-x)PS(5-x)Cl(1+x) under MACE-MP-0 "
-        "with x = 0, 0.25, 0.50 and 0.75 (part D). "
+        + "One panel per MD series (n = 3 runs each, one per temperature), grouped by part of the protocol. "
+        + bold("mace_52_050", "mace_52_100", "mace_52_150") + ", MACE-MP-0 in 52-atom cells run for 50, 100 and "
+        "150 ps (independent trajectories) and " + bold("mace_416_200") + ", its 416-atom, 200-ps production runs; "
+        + bold("mattersim_52_050", "mattersim_52_100", "mattersim_52_150", "mattersim_416_200")
+        + ", the same for MatterSim (the universal potentials on Li6PS5Cl); " + bold("ftG_416_200")
+        + ", MACE-MP-0 fine-tuned on the Gamma labels (stage two) and " + bold("ftK_416_200")
+        + ", on the 2x2x2 labels (stage one), both under the production protocol; " + bold(*cl)
+        + f", the Cl-excess series Li(6-x)PS(5-x)Cl(1+x) under MACE-MP-0 with x = {xs} (summarised in "
+        f"{registry.label('clexcess')}). "
         "Markers, conductivity of each run at 600, 800 and 1000 K from the pymatgen diffusion coefficient (Nernst-"
-        "Einstein, no Haven ratio); error bars, the kinisi 1-sigma uncertainty, whose ratio to sigma weights the fit "
-        "of ln(sigma T) against 1/T. Line, the quoted fit (solid over the simulated range, dashed where extrapolated "
-        "to 300 K) with its 1-sigma band from the fit covariance; the value printed in each panel is sigma(300 K) "
-        "with its 1-sigma interval and Ea with its 1-sigma error. The quoted fit is the published one for every "
-        "series analysed in July 2026 and the re-analysis otherwise ("
+        "Einstein, no Haven ratio); colour, model (Cl content for the Cl-excess series); shape, run type (circle, 416-atom "
+        "production run; triangle, 52-atom run; inverted triangle, Cl-excess run); open, the stage-one model. "
+        "Error bars, the kinisi 1-sigma uncertainty, whose ratio to sigma weights the fit of ln(sigma T) against "
+        "1/T. Line, the quoted fit (solid over the simulated range, dashed where extrapolated to 300 K) with its "
+        "1-sigma band from the fit covariance; the value printed in each panel is sigma(300 K) with its 1-sigma "
+        "interval and Ea with its 1-sigma error. The temperatures of the outer data columns and of the "
+        "extrapolation target are written above the data. The quoted fit is the published one for every series "
+        "analysed in July 2026 and the re-analysis otherwise ("
         + "; ".join(reanalysed) + "). "
         "Strips, residual ln sigma minus the quoted fit at each temperature in units of that point's ln-space "
         "uncertainty (kinisi standard deviation over sigma, from the re-analysis also for the published fits); grey "

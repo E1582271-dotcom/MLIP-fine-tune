@@ -106,16 +106,6 @@ IDENTITY_LINE = {"color": GRAY, "linewidth": 0.5, "linestyle": (0, (3, 2)), "zor
 UNITY_LINE = {"color": GRAY, "linewidth": 0.5, "zorder": 1}  # ax.axhline / axvline at 0 or 1
 BAND_FILL = {"color": BAND, "linewidth": 0, "zorder": 0}  # ax.axvspan / axhspan / fill_between: windows, floors
 
-# --------------------------------------------------------------- legacy, removed in phase 2
-# Old names mapped to the new values so that modules not yet migrated still draw.
-OKABE_ITO = {"black": BLACK, "orange": LIGHT_RED, "sky": BLUE_LIGHT, "green": BLUE, "yellow": LIGHT_GRAY,
-             "blue": NAVY, "vermillion": DEEP_RED, "purple": DARK_GRAY}  # legacy, removed in phase 2
-GREY = GRAY  # legacy, removed in phase 2
-LIGHT_GREY = LIGHT_GRAY  # legacy, removed in phase 2
-DFT_COLORS = LABEL_COLORS  # legacy, removed in phase 2
-EXPERIMENT_COLOR = CONTEXT_COLOR  # legacy, removed in phase 2
-REFERENCE_COLOR = GRAY  # legacy, removed in phase 2
-
 
 def apply_style() -> None:
     plt.rcParams.update({

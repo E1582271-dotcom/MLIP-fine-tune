@@ -771,14 +771,18 @@ def check(target, name: str | None = None) -> list[Finding]:
 
 
 def mode(strict: bool | None = None) -> str:
-    """'strict', 'warn' or 'off': the argument, else the innermost session, else MLIPFT_QA, else 'warn'."""
+    """'strict', 'warn' or 'off': the argument, else the innermost session, else MLIPFT_QA, else 'strict'.
+
+    CI sets MLIPFT_QA=warn: text metrics differ between the Linux fonts there and the fonts the figures are
+    checked with, so the gate is enforced where the figures are made.
+    """
     if strict is not None:
         return "strict" if strict else "warn"
     for state in reversed(_SESSIONS):
         if state["strict"] is not None:
             return "strict" if state["strict"] else "warn"
-    value = os.environ.get("MLIPFT_QA", "warn").strip().lower()
-    return value if value in MODES else "warn"
+    value = os.environ.get("MLIPFT_QA", "strict").strip().lower()
+    return value if value in MODES else "strict"
 
 
 @contextmanager
