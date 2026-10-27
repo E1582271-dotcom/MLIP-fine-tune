@@ -227,3 +227,126 @@ def test_registry_checks_figures_saved_without_layout_save(tmp_path, monkeypatch
     assert (tmp_path / "audit" / "ed06_training" / "index.json").is_file()
     assert registry.build(["training"]) == [tmp_path / "figures" / "extended" / f"ed06_training.{x}"
                                             for x in ("pdf", "svg", "png")]
+
+
+# ------------------------------------------------------------------------------- QA version 2
+
+MM_PER_X = 70.0 / 4.0  # _clean(): mm per x unit
+PT = 25.4 / 72.0  # mm per point
+MARKER_RADIUS_MM = (3.4 / 2 + 0.7 / 2) * PT  # model_style default: markersize 3.4, edge 0.7
+SPINE_HALF_MM = style.LINE / 2 * PT
+
+
+def test_version_marker():
+    assert qa.QA_VERSION == 2
+
+
+def test_text_touching_a_frame_is_a_finding_without_tolerance():
+    fig, L = _clean()
+    left = L.fig.axes[0]
+    left.text(4.0 - 0.05 / MM_PER_X, 4.0, "touches the right frame", ha="right", va="center")  # 0.05 mm short
+    L.text(105.1, 20.0, "into", ha="right", va="center")  # 0.1 mm past the left frame of b
+    findings = qa.overlaps(L)
+    assert [f.subject for f in _errors(findings, "overlaps", "text-frame")] == ["'touches the right frame'"]
+    assert [f.subject for f in _errors(findings, "overlaps", "text-axes")] == ["'into'"]
+    plt.close(fig)
+    fig, L = _clean()
+    L.fig.axes[0].text(4.0 - 0.3 / MM_PER_X, 4.0, "clear of the frame", ha="right", va="center")
+    L.text(104.6, 20.0, "clear", ha="right", va="center")
+    findings = qa.overlaps(L)
+    plt.close(fig)
+    assert not _errors(findings, "overlaps", "text-frame") and not _errors(findings, "overlaps", "text-axes")
+
+
+def test_text_against_reference_lines():
+    fig, L = _clean()
+    ax = L.fig.axes[0]
+    ax.axhline(5.0, **style.UNITY_LINE)  # meets both spines: not a finding by itself
+    ax.plot([0, 8], [0, 8], **style.IDENTITY_LINE)  # clipped at the frame
+    ax.text(3.0, 5.0, "on the unity line", ha="center", va="center")
+    ax.text(3.0, 7.2, "clear of both lines", ha="center", va="center")
+    findings = qa.check(L)
+    hits = _errors(findings, "overlaps", "text-reference")
+    assert [f.subject for f in hits] == ["'on the unity line'"], [str(f) for f in findings]
+    assert not _errors(findings, "frames")
+    ax.plot([0, 4], [8, 0], **style.IDENTITY_LINE)  # a diagonal through the legend in the top-left corner
+    hits = _errors(qa.overlaps(L), "overlaps", "text-reference")
+    plt.close(fig)
+    assert [f.subject for f in hits] == ["'on the unity line'", "'legend'"]
+
+
+def test_markers_of_different_artists():
+    fig, L = _clean()
+    ax = L.fig.axes[0]
+    ax.plot([2.5], [6.0], **common.model_style("ftG"))
+    ftk = ax.plot([2.55], [6.0], **common.model_style("ftK"))[0]  # 0.9 mm apart: the discs overlap
+    ax.plot([2.4, 2.42], [5.0, 5.0], **common.model_style("foundation"))  # one artist: exempt
+    ax.plot([3.5], [6.0], **common.model_style("ftG"))
+    ax.plot([3.5], [6.0], marker="o", markersize=5.0, markerfacecolor="none", markeredgecolor=style.BLACK,
+            markeredgewidth=0.45, linestyle="none")  # a halo around that marker: one composite marker
+    gap = (2 * MARKER_RADIUS_MM + 0.05) / MM_PER_X  # 0.05 mm between the drawn discs
+    ax.plot([1.5], [6.5], **common.model_style("foundation"))
+    ax.plot([1.5 + gap], [6.5], **common.model_style("mattersim"))
+    findings = _errors(qa.overlaps(L), "overlaps", "marker-marker")
+    assert len(findings) == 2, [str(f) for f in findings]
+    common.allow_overlap(ftk)
+    assert len(_errors(qa.overlaps(L), "overlaps", "marker-marker")) == 1
+    plt.close(fig)
+
+
+def test_error_bars_against_markers_of_another_series():
+    fig, L = _clean()
+    ax = L.fig.axes[0]
+    ax.errorbar([2.0], [5.5], yerr=[1.0], fmt="none", ecolor=style.NAVY, elinewidth=0.6, capsize=1.5)
+    ax.plot([2.0], [5.5], **common.model_style("ftG"))  # the bar's own data point
+    ax.errorbar([3.2], [5.5], yerr=[0.6], fmt="o", color=style.DEEP_RED, markersize=3.0)  # own data line
+    assert not _errors(qa.overlaps(L), "overlaps", "errorbar-marker")
+    ax.plot([2.0], [6.2], **common.model_style("ftK"))  # another series on the bar
+    hits = _errors(qa.overlaps(L), "overlaps", "errorbar-marker")
+    assert len(hits) == 1 and hits[0].subject.startswith("error bar #0f4d92")
+    plt.close(fig)
+
+
+def test_error_bar_caps_against_markers_of_another_series():
+    fig, L = _clean()
+    ax = L.fig.axes[0]
+    ax.errorbar([2.0], [5.5], yerr=[1.0], fmt="none", ecolor=style.NAVY, elinewidth=0.6, capsize=1.5,
+                capthick=0.6)
+    cap_half_mm = 1.5 * PT  # a cap spans 2 * capsize
+    beside = 2.0 + (cap_half_mm + MARKER_RADIUS_MM + 0.05) / MM_PER_X
+    ax.plot([beside], [6.5], **common.model_style("ftK"))  # next to the upper cap, clear of the bar
+    ax.plot([beside], [5.5], **common.model_style("foundation"))  # next to the bar, outside 0.1 mm of it
+    hits = _errors(qa.overlaps(L), "overlaps", "errorbar-marker")
+    plt.close(fig)
+    assert len(hits) == 1 and "#3775ba" not in hits[0].subject, [str(f) for f in hits]
+    assert hits[0].box[1] < 8.0 + 38.0 * (1 - 6.4 / 8.0)  # the hit is at the cap (y 6.5), not the bar centre
+
+
+def test_tick_marks_near_another_frame():
+    fig, L = common.new_figure(183.0, 80.0)
+    upper = L.axes(15.0, 8.0, 70.0, 30.0, row="a", col="left")
+    L.axes(15.0, 38.5, 70.0, 10.0, row="b", col="left")  # 0.5 mm below: ticks reach into it
+    upper.tick_params(labelbottom=False)
+    findings = _errors(qa.overlaps(L), "overlaps", "tick-frame")
+    pairs = {(f.subject.split("row=")[1][:3], f.detail.split("row=")[1][:3]) for f in findings}
+    assert pairs == {("'a'", "'b'"), ("'b'", "'a'")}  # x ticks of a reach b; the top y tick of b nears a
+    plt.close(fig)
+    fig, L = common.new_figure(183.0, 80.0)
+    upper = L.axes(15.0, 8.0, 70.0, 30.0, row="a", col="left")
+    L.axes(15.0, 39.5, 70.0, 10.0, row="b", col="left")  # 1.5 mm: 0.88-mm ticks keep 0.5 mm
+    upper.tick_params(labelbottom=False)
+    assert not _errors(qa.overlaps(L), "overlaps", "tick-frame")
+    plt.close(fig)
+
+
+def test_marker_near_a_spine():
+    fig, L = _clean()
+    ax = L.fig.axes[0]
+    reach = MARKER_RADIUS_MM + SPINE_HALF_MM
+    ax.plot([4.0 - (reach + 0.05) / MM_PER_X], [4.0], **common.model_style("ftG"))  # 0.05 mm from the spine
+    ax.plot([4.0 - (reach + 0.2) / MM_PER_X], [5.0], **common.model_style("ftK"))  # 0.2 mm: fine
+    findings = qa.clipped(L)
+    plt.close(fig)
+    near = _errors(findings, "clipped", "marker-near-frame")
+    assert len(near) == 1 and "1 markers" in near[0].detail, [str(f) for f in findings]
+    assert not _errors(findings, "clipped", "marker-on-frame")

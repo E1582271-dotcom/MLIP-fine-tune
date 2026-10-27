@@ -10,25 +10,34 @@ top-left corner of the figure:
 * ``frames``: every axes that is not frameless has four visible frame lines, no tick marks or tick
   labels on the top or right, and no secondary axis.
 * ``overlaps``: text against text (panel letters, figure texts, axes texts and annotations, tick
-  labels, axis labels, titles, legend boxes), text against the frame of other axes and across its
-  own frame, framed axes against each other, and text or legend boxes against the data drawn in
-  the same axes (markers, line vertices, scatter points, error-bar segments, bars).
-* ``clipped``: markers that cross the frame, data points outside the axis limits.
+  labels, axis labels, titles, legend boxes); text touching any frame line, its own or another
+  axes' (no tolerance: any contact with the drawn spine counts); framed axes against each other;
+  text or legend boxes against the data drawn in the same axes (markers, line vertices, scatter
+  points, error-bar segments, bars) and against the reference lines that span it (axhline,
+  axvline, identity and unity lines; no tolerance); markers of different artists in the same axes
+  closer than 0.1 mm (``marker-marker``); error bars and caps of one series closer than 0.1 mm to
+  the marker of another (``errorbar-marker``); tick marks within 0.3 mm of another axes' frame
+  (``tick-frame``).
+* ``clipped``: markers that cross the frame, markers within 0.1 mm of a spine, data points outside
+  the axis limits.
 * ``fonts``: text between 5 and 7 pt, panel letters 8 pt bold; a warning when the font resolves to
   DejaVu (the matplotlib fallback).
 * ``size``: width 89, 120 or 183 mm, height at most 247 mm.
 
 Exempt from ``overlaps`` and ``clipped``: artists registered with ``allow_overlap`` (via
 ``common.allow_overlap``), filled bands and other patches that are not bars, images and meshes,
-reference lines that span the axes (axhline, axvline, identity lines), and the text and data of
-frameless axes (schematics, heatmaps, tables; ``common.frameless``) against each other. Text in a
-frameless axes is still checked against all other text and against framed axes.
+reference lines as data (they are checked against text only, and may meet the spines), the markers
+of one artist against each other, an error bar against its own data point (the marker of the bar's
+colour whose centre lies on the bar), and the text and data of frameless axes (schematics,
+heatmaps, tables; ``common.frameless``) against each other. Text in a frameless axes is still
+checked against all other text and against framed axes. A legend without a frame is measured by
+its entries, not by its invisible padding.
 
 Mode: ``strict`` raises ``FigureQAError`` listing every error, ``warn`` prints a compact summary
 to stderr, ``off`` skips the checks. The mode comes from the ``strict`` argument, else from an
 active ``session`` (``mlipft figures --strict``), else from the environment variable MLIPFT_QA,
-else ``warn``. CI and default builds stay in ``warn`` because font metrics differ between Linux
-and macOS; strict mode is a local check, together with ``crop_audit`` (``--audit DIR``).
+else ``strict``. CI sets MLIPFT_QA=warn because font metrics differ between Linux and macOS; the
+gate is enforced where the figures are made, together with ``crop_audit`` (``--audit DIR``).
 """
 from __future__ import annotations
 
@@ -45,9 +54,11 @@ from typing import NamedTuple
 
 import numpy as np
 from matplotlib import font_manager
+from matplotlib import lines as mlines
 from matplotlib.axes._secondary_axes import SecondaryAxis
 from matplotlib.collections import LineCollection, PathCollection
-from matplotlib.container import BarContainer
+from matplotlib.colors import to_hex, to_rgba_array
+from matplotlib.container import BarContainer, ErrorbarContainer
 from matplotlib.legend import Legend
 from matplotlib.lines import Line2D
 from matplotlib.offsetbox import OffsetBox
@@ -56,11 +67,18 @@ from matplotlib.text import Text
 from .. import paths
 from . import style
 
+QA_VERSION = 2  # 2: strict text-frame contact, text against reference lines, marker and error-bar spacing,
+#                    tick marks near other frames, markers near spines
 DPI = style.DPI
 MM_PER_INCH = 25.4
 ALIGN_TOL_MM = 0.05
-OVERLAP_TOL_MM = 0.2
-FRAME_TOL_MM = 0.02  # a marker may touch the frame by this much
+OVERLAP_TOL_MM = 0.2  # text against text and text against data: overlaps smaller than this pass
+FRAME_TOL_MM = 0.02  # a marker crosses the frame when it reaches this far past the frame line
+MARKER_GAP_MM = 0.1  # least gap between markers of different artists, and between a marker and a foreign error bar
+SPINE_GAP_MM = 0.1  # least gap between a marker and the drawn spine
+TICK_GAP_MM = 0.3  # least gap between a tick mark and the frame of another axes
+ON_BAR_MM = 0.02  # a marker centre this close to an error bar of its colour is the bar's own data point
+SHAPE_STEP_MM = 0.05  # dashes, error bars and caps are sampled at this spacing
 REFERENCE_SPAN = 0.98  # a straight marker-less line covering this fraction of the axes is a reference line
 SAMPLE_MM = 0.25  # line segments are sampled at this spacing for the text-against-data check
 FONT_RANGE = (style.SMALL, style.LABEL)
@@ -267,6 +285,8 @@ class _Item(NamedTuple):
 def _text_box(artist, renderer):
     if isinstance(artist, Text):
         return Text.get_window_extent(artist, renderer)  # the text only, not an annotation's arrow
+    if isinstance(artist, Legend) and not artist.get_frame_on() and getattr(artist, "_legend_box", None) is not None:
+        return artist._legend_box.get_window_extent(renderer)  # the drawn entries, not the invisible padding
     return artist.get_window_extent(renderer)
 
 
@@ -460,6 +480,319 @@ def _clip_visible(data: _Data, frame) -> np.ndarray:
     return (x > frame.x0 - r) & (x < frame.x1 + r) & (y > frame.y0 - r) & (y < frame.y1 + r)
 
 
+def _spine_half_width(ax, d: Drawn) -> float:
+    """Half the width of the widest visible spine of ``ax`` (display units)."""
+    widths = [spine.get_linewidth() for spine in ax.spines.values() if spine.get_visible()]
+    return (max(widths) if widths else 0.0) / 2 * d.dpi / 72.0
+
+
+def _grown(box, by: float) -> tuple[float, float, float, float]:
+    return box.x0 - by, box.y0 - by, box.x1 + by, box.y1 + by
+
+
+def _box_meets(box, other: tuple[float, float, float, float]) -> bool:
+    """Whether a display bbox and an (x0, y0, x1, y1) rectangle share an area (no tolerance)."""
+    return min(box.x1, other[2]) - max(box.x0, other[0]) > 0 and min(box.y1, other[3]) - max(box.y0, other[1]) > 0
+
+
+def _frame_contact(box, frame, half_width: float) -> str:
+    """Name of the drawn frame line (a band ``half_width`` either side of the frame edge) that ``box`` touches."""
+    x0, y0, x1, y1, w = frame.x0, frame.y0, frame.x1, frame.y1, half_width
+    for side, band in (("left", (x0 - w, y0 - w, x0 + w, y1 + w)), ("right", (x1 - w, y0 - w, x1 + w, y1 + w)),
+                       ("bottom", (x0 - w, y0 - w, x1 + w, y0 + w)), ("top", (x0 - w, y1 - w, x1 + w, y1 + w))):
+        if _box_meets(box, band):
+            return side
+    return ""
+
+
+def _clip_segment(p0, p1, box: tuple[float, float, float, float]):
+    """The part of segment ``p0``-``p1`` strictly inside ``box`` (Liang-Barsky), or None."""
+    dx, dy = p1[0] - p0[0], p1[1] - p0[1]
+    t0, t1 = 0.0, 1.0
+    for p, q in ((-dx, p0[0] - box[0]), (dx, box[2] - p0[0]), (-dy, p0[1] - box[1]), (dy, box[3] - p0[1])):
+        if p == 0:
+            if q <= 0:
+                return None
+            continue
+        t = q / p
+        if p < 0:
+            t0 = max(t0, t)
+        else:
+            t1 = min(t1, t)
+        if t0 >= t1:
+            return None
+    return (p0[0] + t0 * dx, p0[1] + t0 * dy), (p0[0] + t1 * dx, p0[1] + t1 * dy)
+
+
+def _reference_segments(ax, d: Drawn) -> list[tuple[object, list, float]]:
+    """(line, drawn segments, half width) of every visible reference line of ``ax``, clipped to the frame."""
+    out = []
+    frame = (ax.bbox.x0, ax.bbox.y0, ax.bbox.x1, ax.bbox.y1)
+    for line in ax.lines:
+        if not line.get_visible() or is_exempt(line) or _no_line(line) or not _is_reference_line(line, ax):
+            continue
+        xy = line.get_transform().transform(np.asarray(line.get_xydata(), float).reshape(-1, 2))
+        segments = []
+        for p0, p1 in zip(xy[:-1], xy[1:]):
+            if not (np.isfinite(p0).all() and np.isfinite(p1).all()):
+                continue
+            part = _clip_segment(p0, p1, frame) if line.get_clip_on() else (tuple(p0), tuple(p1))
+            if part is not None:
+                segments.append(part)
+        if segments:
+            out.append((line, segments, line.get_linewidth() / 2 * d.dpi / 72.0))
+    return out
+
+
+class _Marks(NamedTuple):
+    """The drawn markers of one artist as discs: dashes ("_", "|") are sampled along their length."""
+
+    artist: object
+    centres: np.ndarray  # (m, 2) marker centres, display units
+    xy: np.ndarray  # (n, 2) disc centres
+    radius: np.ndarray  # (n,)
+    index: np.ndarray  # (n,) marker each disc belongs to
+    colors: np.ndarray  # (k, 3) RGB of the marker edges and faces
+    name: str
+
+
+def _rgb(colors) -> np.ndarray:
+    """Opaque RGB rows of a colour or colour array (fully transparent entries dropped)."""
+    try:
+        rgba = to_rgba_array(colors)
+    except (TypeError, ValueError):
+        return np.empty((0, 3))
+    return rgba[rgba[:, 3] > 0, :3]
+
+
+def _same_colour(a: np.ndarray, b: np.ndarray) -> bool:
+    return bool(len(a) and len(b) and (np.abs(a[:, None, :] - b[None, :, :]).max(axis=2) < 1e-3).any())
+
+
+def _discs(centres: np.ndarray, marker, size_px: np.ndarray, edge_px: np.ndarray, step: float):
+    """(disc centres, radii, marker index) of markers: a disc of radius size/2 + edge/2, a dash as a sampled
+    segment of half-width edge/2."""
+    if marker in ("_", "|", mlines.TICKLEFT, mlines.TICKRIGHT, mlines.TICKUP, mlines.TICKDOWN):
+        horizontal = marker in ("_", mlines.TICKLEFT, mlines.TICKRIGHT)
+        xy, radius, index = [], [], []
+        for i, (centre, size, edge) in enumerate(zip(centres, size_px, edge_px)):
+            offsets = np.linspace(-size / 2, size / 2, max(2, int(np.ceil(size / step)) + 1))
+            if marker in (mlines.TICKLEFT, mlines.TICKDOWN):
+                offsets = offsets - size / 2
+            elif marker in (mlines.TICKRIGHT, mlines.TICKUP):
+                offsets = offsets + size / 2
+            points = np.repeat(centre[None, :], len(offsets), axis=0)
+            points[:, 0 if horizontal else 1] += offsets
+            xy.append(points)
+            radius.append(np.full(len(offsets), edge / 2))
+            index.append(np.full(len(offsets), i))
+        if not xy:
+            return np.empty((0, 2)), np.empty(0), np.empty(0, int)
+        return np.vstack(xy), np.concatenate(radius), np.concatenate(index)
+    return centres, size_px / 2 + edge_px / 2, np.arange(len(centres))
+
+
+def _errorbar_artists(ax) -> tuple[set[int], dict[int, int]]:
+    """ids of the caps and bar collections of every error bar, and data line id -> container id."""
+    parts, data_lines = set(), {}
+    for container in ax.containers:
+        if isinstance(container, ErrorbarContainer):
+            data_line, caplines, barlinecols = container.lines
+            parts |= {id(artist) for artist in (*caplines, *barlinecols)}
+            if data_line is not None:
+                data_lines[id(data_line)] = id(container)
+    return parts, data_lines
+
+
+def marker_sets(ax, d: Drawn) -> list[_Marks]:
+    """The drawn markers of every Line2D and scatter collection of ``ax`` (error-bar caps excluded)."""
+    parts, _ = _errorbar_artists(ax)
+    step, px = d.px(SHAPE_STEP_MM), d.dpi / 72.0
+    out = []
+    for line in ax.lines:
+        if not line.get_visible() or is_exempt(line) or id(line) in parts or _no_marker(line.get_marker()) \
+                or line.get_markersize() <= 0:
+            continue
+        centres = line.get_transform().transform(np.asarray(line.get_xydata(), float).reshape(-1, 2))
+        centres = centres[np.isfinite(centres).all(axis=1)]
+        n = len(centres)
+        xy, radius, index = _discs(centres, line.get_marker(), np.full(n, line.get_markersize() * px),
+                                   np.full(n, line.get_markeredgewidth() * px), step)
+        colors = np.vstack([_rgb(line.get_markeredgecolor()), _rgb(line.get_markerfacecolor())])
+        out.append(_Marks(line, centres, xy, radius, index, colors, _artist_name(line)))
+    for collection in ax.collections:
+        if not isinstance(collection, PathCollection) or not collection.get_visible() or is_exempt(collection) \
+                or id(collection) in parts:
+            continue
+        offsets = np.ma.filled(np.ma.asarray(collection.get_offsets(), float), np.nan).reshape(-1, 2)
+        sizes = np.asarray(collection.get_sizes(), float)
+        if not len(offsets) or not len(sizes):
+            continue
+        centres = collection.get_offset_transform().transform(offsets)
+        widths = np.asarray(collection.get_linewidths(), float)
+        sizes = np.resize(np.sqrt(sizes), len(centres)) * px
+        widths = np.resize(widths if len(widths) else np.zeros(1), len(centres)) * px
+        keep = np.isfinite(centres).all(axis=1)
+        centres = centres[keep]
+        colors = np.vstack([_rgb(collection.get_edgecolors()), _rgb(collection.get_facecolors())])
+        out.append(_Marks(collection, centres, centres, sizes[keep] / 2 + widths[keep] / 2,
+                          np.arange(len(centres)), colors, _artist_name(collection)))
+    frame = ax.bbox
+    shown = []
+    for marks in out:  # only what is drawn: clipped artists lose the markers outside the frame
+        if marks.artist.get_clip_on() and len(marks.xy):
+            x, y, r = marks.xy[:, 0], marks.xy[:, 1], marks.radius
+            keep = (x > frame.x0 - r) & (x < frame.x1 + r) & (y > frame.y0 - r) & (y < frame.y1 + r)
+            marks = marks._replace(xy=marks.xy[keep], radius=marks.radius[keep], index=marks.index[keep])
+        if len(marks.xy):
+            shown.append(marks)
+    return shown
+
+
+class _Bar(NamedTuple):
+    """One error bar of one data point, with its caps, as discs."""
+
+    container: int
+    segment: tuple | None  # (p0, p1) of the bar, display units, for the ownership test
+    xy: np.ndarray
+    radius: np.ndarray
+    colors: np.ndarray
+    name: str
+
+
+def errorbar_bars(ax, d: Drawn) -> list[_Bar]:
+    """Every drawn error bar of ``ax`` with the caps at its ends."""
+    step, px, join = d.px(SHAPE_STEP_MM), d.dpi / 72.0, d.px(0.05)
+    out = []
+    for container in ax.containers:
+        if not isinstance(container, ErrorbarContainer):
+            continue
+        _, caplines, barlinecols = container.lines
+        bars = []  # [p0, p1, xy list, radius list, colors]
+        for collection in barlinecols:
+            if not collection.get_visible() or is_exempt(collection):
+                continue
+            widths = np.asarray(collection.get_linewidths(), float)
+            half = (float(widths.max()) if len(widths) else 0.0) / 2 * px
+            colors = _rgb(collection.get_colors())
+            transform = collection.get_transform()
+            for segment in collection.get_segments():
+                points = transform.transform(np.asarray(segment, float).reshape(-1, 2))
+                if len(points) < 2 or not np.isfinite(points).all():
+                    continue
+                sampled = _sample(points, step)
+                bars.append([points[0], points[-1], [sampled], [np.full(len(sampled), half)], colors])
+        loose = []
+        for capline in caplines:
+            if not capline.get_visible() or is_exempt(capline) or capline.get_markersize() <= 0:
+                continue
+            centres = capline.get_transform().transform(np.asarray(capline.get_xydata(), float).reshape(-1, 2))
+            centres = centres[np.isfinite(centres).all(axis=1)]
+            n = len(centres)
+            xy, radius, index = _discs(centres, capline.get_marker(), np.full(n, capline.get_markersize() * px),
+                                       np.full(n, capline.get_markeredgewidth() * px), step)
+            for i, centre in enumerate(centres):
+                ends = [min(np.hypot(*(centre - bar[0])), np.hypot(*(centre - bar[1]))) for bar in bars]
+                target = bars[int(np.argmin(ends))] if ends and min(ends) <= join else None
+                part = (xy[index == i], radius[index == i])
+                if target is None:
+                    loose.append(part + (_rgb(capline.get_markeredgecolor()),))
+                else:
+                    target[2].append(part[0])
+                    target[3].append(part[1])
+        label = container.get_label()
+        for p0, p1, xy, radius, colors in bars:
+            name = f"error bar {_hex(colors)}" + (f" {label!r}" if label and not label.startswith("_") else "")
+            out.append(_Bar(id(container), (p0, p1), np.vstack(xy), np.concatenate(radius), colors, name))
+        for xy, radius, colors in loose:
+            out.append(_Bar(id(container), None, xy, radius, colors, f"error-bar cap {_hex(colors)}"))
+    return out
+
+
+def _hex(colors: np.ndarray) -> str:
+    return to_hex(colors[0]) if len(colors) else "(no colour)"
+
+
+def _on_segment(centres: np.ndarray, segment, tolerance: float) -> np.ndarray:
+    """Mask of the centres that lie on the segment (within ``tolerance``)."""
+    p0, p1 = np.asarray(segment[0], float), np.asarray(segment[1], float)
+    direction = p1 - p0
+    length2 = float(direction @ direction)
+    if length2 == 0:
+        return np.hypot(*(centres - p0).T) <= tolerance
+    t = ((centres - p0) @ direction) / length2
+    nearest = p0 + np.clip(t, 0.0, 1.0)[:, None] * direction
+    return np.hypot(*(centres - nearest).T) <= tolerance
+
+
+def _touching(a_xy: np.ndarray, a_r: np.ndarray, b_xy: np.ndarray, b_r: np.ndarray, gap: float,
+              a_centre: np.ndarray | None = None, b_centre: np.ndarray | None = None, concentric: float = 0.0):
+    """(mask over the a discs that come closer than ``gap`` to a b disc, first such (a, b) disc pair).
+
+    With ``a_centre``/``b_centre`` (the marker centre of every disc), pairs of markers whose centres lie within
+    ``concentric`` of each other are one composite marker (a halo or outline drawn around a marker) and pass.
+    """
+    hit = np.zeros(len(a_xy), bool)
+    if not len(a_xy) or not len(b_xy):
+        return hit, None
+    reach = float(a_r.max() + b_r.max() + gap)
+    low, high = a_xy.min(axis=0) - reach, a_xy.max(axis=0) + reach
+    keep = ((b_xy >= low) & (b_xy <= high)).all(axis=1)
+    b_xy, b_r = b_xy[keep], b_r[keep]
+    if b_centre is not None:
+        b_centre = b_centre[keep]
+    if not len(b_xy):
+        return hit, None
+    first = None
+    chunk = max(1, 2_000_000 // len(b_xy))
+    for start in range(0, len(a_xy), chunk):
+        pa, ra = a_xy[start:start + chunk], a_r[start:start + chunk]
+        distance = np.hypot(pa[:, None, 0] - b_xy[None, :, 0], pa[:, None, 1] - b_xy[None, :, 1])
+        close = distance < ra[:, None] + b_r[None, :] + gap
+        if a_centre is not None and b_centre is not None:
+            ca = a_centre[start:start + chunk]
+            close &= np.hypot(ca[:, None, 0] - b_centre[None, :, 0], ca[:, None, 1] - b_centre[None, :, 1]) \
+                >= concentric
+        rows = close.any(axis=1)
+        hit[start:start + chunk] = rows
+        if first is None and rows.any():
+            i = int(np.argmax(rows))
+            first = (pa[i], b_xy[int(np.argmax(close[i]))])
+    return hit, first
+
+
+def tick_marks(ax, d: Drawn) -> np.ndarray:
+    """(n, 4) display boxes (x0, y0, x1, y1) of the drawn tick marks of ``ax``."""
+    boxes = []
+    if not ax.axison:
+        return np.empty((0, 4))
+    px = d.dpi / 72.0
+    for axis in (ax.xaxis, ax.yaxis):
+        if not axis.get_visible():
+            continue
+        for tick in _drawn_ticks(axis):
+            for line in (tick.tick1line, tick.tick2line):
+                if not line.get_visible() or line.get_markersize() <= 0:
+                    continue
+                xy = line.get_transform().transform(np.asarray(line.get_xydata(), float).reshape(-1, 2))
+                length, half = line.get_markersize() * px, line.get_markeredgewidth() / 2 * px
+                marker = line.get_marker()
+                for x, y in xy[np.isfinite(xy).all(axis=1)]:
+                    if marker == mlines.TICKDOWN:
+                        boxes.append((x - half, y - length, x + half, y))
+                    elif marker == mlines.TICKUP:
+                        boxes.append((x - half, y, x + half, y + length))
+                    elif marker == mlines.TICKLEFT:
+                        boxes.append((x - length, y - half, x, y + half))
+                    elif marker == mlines.TICKRIGHT:
+                        boxes.append((x, y - half, x + length, y + half))
+                    elif marker == "|":
+                        boxes.append((x - half, y - length / 2, x + half, y + length / 2))
+                    else:
+                        boxes.append((x - length / 2, y - half, x + length / 2, y + half))
+    return np.array(boxes, float).reshape(-1, 4)
+
+
 # -------------------------------------------------------------------------------------- checks
 
 
@@ -588,24 +921,43 @@ def overlaps(fig, tol_mm: float = OVERLAP_TOL_MM, name: str | None = None) -> li
                 findings.append(Finding(name, "overlaps", kind, f"{a.name!r} / {b.name!r}",
                                         _mm_tuple(d, box), f"{a.role} / {b.role}"))
 
-        # text against frames
+        # text against frames: any contact with a drawn frame line, or any overlap with another axes' frame
         framed = [ax for ax, _ in tree if not is_frameless(ax) and not isinstance(ax, SecondaryAxis)]
+        half_widths = {id(ax): _spine_half_width(ax, d) for ax in framed}
         for item in items:
             owner_line = _ancestors(item.owner, parents) | {id(item.owner)} if item.owner is not None else set()
             for ax in framed:
-                frame = ax.bbox
+                frame, half = ax.bbox, half_widths[id(ax)]
                 if item.owner is ax:
-                    side = _crosses_frame(item.box, frame, tol)
-                    if side and not is_frameless(ax):
+                    side = _frame_contact(item.box, frame, half)
+                    if side:
                         findings.append(Finding(name, "overlaps", "text-frame", repr(item.name), d.mm(item.box),
-                                                f"{item.role} crosses the {side} frame line of {describe(ax, layout)}"))
+                                                f"{item.role} touches the {side} frame line of {describe(ax, layout)}"))
                     continue
                 if id(ax) in owner_line:
                     continue
-                w, h = _intersection(item.box, frame)
-                if w > tol and h > tol:
+                if _box_meets(item.box, _grown(frame, half)):
                     findings.append(Finding(name, "overlaps", "text-axes", repr(item.name), d.mm(item.box),
-                                            f"{item.role} inside the frame of {describe(ax, layout)}"))
+                                            f"{item.role} touches or enters the frame of {describe(ax, layout)}"))
+
+        # tick marks against the frame of other axes
+        for a in framed:
+            ticks = tick_marks(a, d)
+            if not len(ticks):
+                continue
+            for b in framed:
+                if b is a or id(a) in _ancestors(b, parents) or id(b) in _ancestors(a, parents):
+                    continue
+                band = _grown(b.bbox, half_widths[id(b)])
+                gx = np.maximum.reduce([band[0] - ticks[:, 2], ticks[:, 0] - band[2], np.zeros(len(ticks))])
+                gy = np.maximum.reduce([band[1] - ticks[:, 3], ticks[:, 1] - band[3], np.zeros(len(ticks))])
+                near = np.hypot(gx, gy) < d.px(TICK_GAP_MM)
+                if near.any():
+                    first = ticks[int(np.argmax(near))]
+                    findings.append(Finding(name, "overlaps", "tick-frame", describe(a, layout),
+                                            _mm_tuple(d, tuple(first)),
+                                            f"{int(near.sum())} tick marks within {TICK_GAP_MM:g} mm of the frame of "
+                                            f"{describe(b, layout)}"))
 
         # framed axes against each other
         for i, a in enumerate(framed):
@@ -619,13 +971,23 @@ def overlaps(fig, tol_mm: float = OVERLAP_TOL_MM, name: str | None = None) -> li
                                             _mm_tuple(d, (max(a.bbox.x0, b.bbox.x0), max(a.bbox.y0, b.bbox.y0),
                                                           min(a.bbox.x1, b.bbox.x1), min(a.bbox.y1, b.bbox.y1)))))
 
-        # text and legends against the data of their own axes (not in frameless schematics)
+        # inside each axes (not in frameless schematics)
         for ax, _ in tree:
             if is_frameless(ax) or isinstance(ax, SecondaryAxis) or is_exempt(ax):
                 continue
+            findings += _marker_spacing(ax, d, name, layout)
             own = [item for item in items if item.owner is ax and item.role in ("text", "legend")]
             if not own:
                 continue
+            # text and legends against reference lines: no contact at all
+            for line, segments, half in _reference_segments(ax, d):
+                for item in own:
+                    box = _grown(item.box, half)
+                    if any(_clip_segment(p0, p1, box) is not None for p0, p1 in segments):
+                        findings.append(Finding(name, "overlaps", "text-reference", repr(item.name), d.mm(item.box),
+                                                f"{item.role} crossed by the reference line {_artist_name(line)} in "
+                                                f"{describe(ax, layout)}"))
+            # text and legends against the data
             series = data_points(ax, d)
             bars = _bars(ax, d)
             for item in own:
@@ -658,30 +1020,60 @@ def _mm_tuple(d: Drawn, box) -> tuple[float, float, float, float]:
     return (d.to_mm(x0), d.to_mm(d.height - y1), d.to_mm(x1), d.to_mm(d.height - y0))
 
 
-def _crosses_frame(box, frame, tol: float) -> str:
-    """Name of the frame line that passes through ``box`` (by more than ``tol`` on both sides), else ''."""
-    along_y = min(box.y1, frame.y1) - max(box.y0, frame.y0) > tol
-    along_x = min(box.x1, frame.x1) - max(box.x0, frame.x0) > tol
-    for side, x in (("left", frame.x0), ("right", frame.x1)):
-        if along_y and box.x0 + tol < x < box.x1 - tol:
-            return side
-    for side, y in (("bottom", frame.y0), ("top", frame.y1)):
-        if along_x and box.y0 + tol < y < box.y1 - tol:
-            return side
-    return ""
+def _marker_spacing(ax, d: Drawn, name: str, layout) -> list[Finding]:
+    """Markers of different artists, and error bars against foreign markers, closer than MARKER_GAP_MM."""
+    findings = []
+    gap, on_bar = d.px(MARKER_GAP_MM), d.px(ON_BAR_MM)
+    marks = marker_sets(ax, d)
+    _, data_lines = _errorbar_artists(ax)
+    for i, a in enumerate(marks):
+        for b in marks[i + 1:]:
+            hit, first = _touching(a.xy, a.radius, b.xy, b.radius, gap, a.centres[a.index], b.centres[b.index],
+                                   on_bar)
+            if first is None:
+                continue
+            (ax_, ay_), (bx_, by_) = first
+            box = _mm_tuple(d, (min(ax_, bx_), min(ay_, by_), max(ax_, bx_), max(ay_, by_)))
+            findings.append(Finding(name, "overlaps", "marker-marker", f"{a.name} / {b.name}", box,
+                                    f"{len(np.unique(a.index[hit]))} markers closer than {MARKER_GAP_MM:g} mm to "
+                                    f"markers of another artist in {describe(ax, layout)}"))
+    for bar in errorbar_bars(ax, d):
+        # the bar's own data point: a marker of the bar's colour centred on the bar, and markers concentric with it
+        owners = np.empty((0, 2))
+        if bar.segment is not None:
+            owners = np.vstack([np.empty((0, 2))] + [m.centres[_on_segment(m.centres, bar.segment, on_bar)]
+                                                     for m in marks if _same_colour(m.colors, bar.colors)])
+        for m in marks:
+            if data_lines.get(id(m.artist)) == bar.container:
+                continue  # the error bar's own data line
+            owned = np.zeros(len(m.centres), bool)
+            if len(owners) and len(m.centres):
+                owned = np.hypot(m.centres[:, None, 0] - owners[None, :, 0],
+                                 m.centres[:, None, 1] - owners[None, :, 1]).min(axis=1) < on_bar
+            keep = ~owned[m.index]
+            hit, first = _touching(m.xy[keep], m.radius[keep], bar.xy, bar.radius, gap)
+            if first is None:
+                continue
+            (mx, my), (bx, by) = first
+            box = _mm_tuple(d, (min(mx, bx), min(my, by), max(mx, bx), max(my, by)))
+            findings.append(Finding(name, "overlaps", "errorbar-marker", f"{bar.name} / {m.name}", box,
+                                    f"{len(np.unique(m.index[keep][hit]))} markers closer than {MARKER_GAP_MM:g} mm "
+                                    f"to an error bar or cap of another series in {describe(ax, layout)}"))
+    return findings
 
 
 def clipped(fig, name: str | None = None) -> list[Finding]:
-    """Markers that cross the frame of framed axes, and clipped data points outside the axis limits."""
+    """Markers that cross the frame of framed axes or come within 0.1 mm of a spine, and clipped data points
+    outside the axis limits."""
     fig, layout = _split(fig)
     name = _name(fig, name)
     findings = []
     with drawn(fig) as d:
-        tol = d.px(FRAME_TOL_MM)
+        tol, spine_gap = d.px(FRAME_TOL_MM), d.px(SPINE_GAP_MM)
         for ax, _ in _tree(fig):
             if is_frameless(ax) or isinstance(ax, SecondaryAxis) or is_exempt(ax):
                 continue
-            f = ax.bbox
+            f, half = ax.bbox, _spine_half_width(ax, d)
             for data in data_points(ax, d, markers_only=True):
                 if not len(data.xy):
                     continue
@@ -706,6 +1098,16 @@ def clipped(fig, name: str | None = None) -> list[Finding]:
                     px, py = d.point_mm(x[first], y[first])
                     findings.append(Finding(name, "clipped", "marker-on-frame", data.name, d.mm(f),
                                             f"{int(crossing.sum())} markers cross the frame of "
+                                            f"{describe(ax, layout)}, first at ({px:.2f}, {py:.2f}) mm"))
+                # gap between the marker edge and the drawn spine
+                near = ~crossing & (np.where(outside, outer, inner) - r - half < spine_gap)
+                if data.clip_on:
+                    near &= ~outside
+                if near.any():
+                    first = int(np.argmax(near))
+                    px, py = d.point_mm(x[first], y[first])
+                    findings.append(Finding(name, "clipped", "marker-near-frame", data.name, d.mm(f),
+                                            f"{int(near.sum())} markers within {SPINE_GAP_MM:g} mm of a spine of "
                                             f"{describe(ax, layout)}, first at ({px:.2f}, {py:.2f}) mm"))
     return findings
 
