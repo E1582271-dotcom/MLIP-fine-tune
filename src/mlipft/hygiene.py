@@ -73,9 +73,20 @@ def scan_text(text: str) -> list[tuple[int, str]]:
     return problems
 
 
+# "name 2.ext": the copy a file-sync service leaves when two writers collide (the repository may sit in a
+# synced folder). Such copies are ignored by git, so they are looked for in the whole working tree.
+SYNC_COPY = re.compile(r" \d+(\.[^.\s]+)*$")
+
+
+def sync_copies() -> list[Path]:
+    return sorted(path for path in REPO.rglob("* [0-9]*") if SYNC_COPY.search(path.name)
+                  and not {".git", ".venv"} & set(path.relative_to(REPO).parts))
+
+
 def check(files: list[Path] | None = None) -> list[str]:
+    problems = [f"{path.relative_to(REPO).as_posix()}: file-sync conflict copy" for path in sync_copies()]
     files = tracked_files() if files is None else files
-    problems, total = [], 0
+    total = 0
     for path in files:
         rel = path.relative_to(REPO).as_posix()
         size = path.stat().st_size

@@ -21,3 +21,6 @@ generation/hpc/site.env
 generation/output/
 ingest/site.env
 work/
+# Copies left by file-sync conflicts ("name 2.ext"); mlipft check-repo reports them.
+* [0-9].*
+* [0-9]

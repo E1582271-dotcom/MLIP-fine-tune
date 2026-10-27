@@ -12,7 +12,9 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 DATA = REPO / "data"
 RESULTS = REPO / "results"
-FIGURES = REPO / "figures"
+# MLIPFT_FIGURES_DIR redirects the figure exports (e.g. to a folder outside a synced directory while
+# several builds run at once); unset, they go to figures/ in the repository.
+FIGURES = Path(os.environ["MLIPFT_FIGURES_DIR"]) if os.environ.get("MLIPFT_FIGURES_DIR") else REPO / "figures"
 DOCS = REPO / "docs"
 PROTOCOL = REPO / "protocol"
 
