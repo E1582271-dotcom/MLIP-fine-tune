@@ -1,7 +1,8 @@
 """``mlipft tables``: every table of ``results/``, from the committed data only.
 
-Part A (universal potentials against experiment), B (fine-tuned models against DFT), C (transport,
-model against model), D (Cl-excess series), and the reproduction of the July values, following
+Transport of every model against AIMD of the same ordered cell (amendment A3), A (universal
+potentials; experiment as context only), B (fine-tuned models against DFT), C (transport, model
+against model), D (Cl-excess series), and the reproduction of the July values, following
 ``protocol/``. Only rows of universal potentials carry a ratio to experiment.
 """
 from __future__ import annotations
@@ -22,6 +23,11 @@ from .transport.arrhenius import arrhenius_fit
 FIT_FIELDS = ("n_points", "weighted", "Ea_eV", "Ea_err_eV", "sigma300_mS_cm", "sigma300_min_mS_cm",
               "sigma300_max_mS_cm", "R2", "slope", "slope_err", "intercept", "intercept_err")
 PART_C = {"foundation": "mace_416_200", "ftG": "ftG_416_200", "ftK": "ftK_416_200"}
+AIMD = paths.REFERENCES / "aimd_deng2017" / "transport.csv"
+# Runs compared with AIMD (amendment A3): the four production series, the 52-atom runs (the AIMD cell
+# size) and the second 416-atom MACE-MP-0 run.
+AIMD_SERIES = ("mace_416_200", "mattersim_416_200", "ftG_416_200", "ftK_416_200", "mace_52_050", "mace_52_100",
+               "mace_52_150", "mattersim_52_050", "mattersim_52_100", "mattersim_52_150", "clx000_416_150")
 
 
 def _read(path: Path, **kwargs) -> pd.DataFrame:
@@ -191,6 +197,29 @@ def transport_comparison(transport: pd.DataFrame, fit_table: pd.DataFrame) -> tu
     return pd.DataFrame(ratio_rows), pd.DataFrame(summary)
 
 
+def aimd_comparison(transport: pd.DataFrame) -> pd.DataFrame:
+    """D of each run against the AIMD of the same ordered cell at the same temperature (amendment A3)."""
+    aimd = _read(AIMD).set_index("temperature_K")
+    per_run = transport.set_index("run_id")
+    rows = []
+    for series_id in AIMD_SERIES:
+        series = C.SERIES_BY_ID[series_id]
+        for t in C.TEMPERATURES:
+            run, ref = per_run.loc[C.run_id(series_id, t)], aimd.loc[t]
+            rel = math.hypot(run["kinisi_D_std_cm2_s"] / run["kinisi_D_cm2_s"],
+                             ref["kinisi_D_std_cm2_s"] / ref["kinisi_D_cm2_s"])
+            rows.append({"series": series_id, "model": series["model"], "potential": series["potential"],
+                         "n_atoms": series["n_atoms"], "production_ps": series["production_ps"], "temperature_K": t,
+                         "kinisi_D_cm2_s": run["kinisi_D_cm2_s"], "kinisi_D_std_cm2_s": run["kinisi_D_std_cm2_s"],
+                         "aimd_kinisi_D_cm2_s": ref["kinisi_D_cm2_s"],
+                         "aimd_kinisi_D_std_cm2_s": ref["kinisi_D_std_cm2_s"],
+                         "kinisi_D_ratio_to_aimd": run["kinisi_D_cm2_s"] / ref["kinisi_D_cm2_s"],
+                         "kinisi_D_ratio_rel_err": rel, "pymatgen_D_ratio_to_aimd": run["D_cm2_s"] / ref["D_cm2_s"],
+                         "msd_loglog_slope": run["msd_loglog_slope_fit_window"],
+                         "aimd_msd_loglog_slope": ref["msd_loglog_slope_fit_window"]})
+    return pd.DataFrame(rows)
+
+
 def clexcess(fit_table: pd.DataFrame, quoted: dict) -> pd.DataFrame:
     rows = []
     selected = {s: fit_table[(fit_table["series"] == s) & (fit_table["source"] == quoted[s])].iloc[0]
@@ -221,7 +250,7 @@ def build(out: Path | None = None) -> list[Path]:
     tables = {
         "fits.csv": fit_table, "reproduction_runs.csv": runs, "reproduction_fits.csv": fit_classes,
         "thermostat.csv": thermostat(transport), "convergence.csv": convergence(transport, fit_table),
-        "clexcess.csv": clexcess(fit_table, quoted),
+        "clexcess.csv": clexcess(fit_table, quoted), "aimd_comparison.csv": aimd_comparison(transport),
     }
     ratios, summary = transport_comparison(transport, fit_table)
     tables["transport_ratios.csv"], tables["transport_comparison.csv"] = ratios, summary

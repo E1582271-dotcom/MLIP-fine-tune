@@ -41,13 +41,13 @@ def pymatgen_diffusion(structures, temperature: float) -> dict:
     return {"D_cm2_s": float(analyzer.diffusivity), "sigma_mS_cm": float(analyzer.conductivity)}
 
 
-def kinisi_analyzer(frames):
+def kinisi_analyzer(frames, time_step_fs: float = TIME_STEP_FS, step_skip: int = STEP_SKIP):
     """kinisi DiffusionAnalyzer of the Li atoms of ``frames`` (a list of ASE Atoms)."""
     import scipp as sc
     from kinisi.analyze import DiffusionAnalyzer
 
-    return DiffusionAnalyzer.from_ase(frames, specie="Li", time_step=sc.scalar(TIME_STEP_FS, unit="fs"),
-                                      step_skip=sc.scalar(STEP_SKIP, unit=sc.units.dimensionless),
+    return DiffusionAnalyzer.from_ase(frames, specie="Li", time_step=sc.scalar(float(time_step_fs), unit="fs"),
+                                      step_skip=sc.scalar(step_skip, unit=sc.units.dimensionless),
                                       progress=False)
 
 

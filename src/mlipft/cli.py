@@ -2,7 +2,8 @@
 
 Rebuild layer (needs only data/): ``mlipft tables | figures | docs | check-repo | all``.
 Ingest layer (needs the raw backup in MLIPFT_RAW and the ingest dependencies):
-``mlipft ingest published --legacy <repo> | dft | models | trajectories [--workers N] | collect | manifest``.
+``mlipft ingest published --legacy <repo> | dft | models | trajectories [--workers N] | collect | manifest``;
+``mlipft ingest aimd --source <folder>`` (the AIMD reference, amendment A3).
 """
 from __future__ import annotations
 
@@ -38,6 +39,10 @@ def _ingest(args) -> int:
         from .ingest import manifest
 
         manifest.build()
+    elif args.step == "aimd":
+        from .ingest import aimd
+
+        aimd.ingest(args.source)
     return 0
 
 
@@ -85,8 +90,9 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(prog="mlipft", description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
     ingest = sub.add_parser("ingest", help="raw backup -> data/ (local only)")
-    ingest.add_argument("step", choices=("published", "dft", "models", "trajectories", "collect", "manifest"))
+    ingest.add_argument("step", choices=("published", "dft", "models", "trajectories", "collect", "manifest", "aimd"))
     ingest.add_argument("--legacy", help="working repository (for 'published')")
+    ingest.add_argument("--source", help="folder of the downloaded AIMD files (for 'aimd')")
     ingest.add_argument("--workers", type=int, default=4)
     ingest.set_defaults(func=_ingest)
     sub.add_parser("tables", help="data/ -> results/").set_defaults(func=_tables)
