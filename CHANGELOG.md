@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+- Figures restructured into four main figures (study design; forces against DFT; Li diffusion against
+  AIMD; what fine-tuning changes) and nine Extended Data figures; measured conductivities appear only
+  in Extended Data Figs. 8 and 9, as context.
+- One encoding vocabulary for every figure (fine-tuned models blue, universal potentials red, DFT and
+  AIMD references black and grey; fill marks the training stage), closed frames, and figures cited by
+  registry key instead of hard-coded numbers.
+- Automatic figure checks for panel alignment, closed frames, overlapping text and markers, clipping,
+  font sizes and figure size (strict locally, warnings only in CI).
+- The 1.0.0 entry below says eight Extended Data figures; 1.0.0 had nine (the AIMD reference was its
+  ninth).
+
 ## 1.0.0 (2026-10-27)
 
 First public release, rebuilt from the raw files of the July 2026 simulations.
@@ -16,8 +29,7 @@ First public release, rebuilt from the raw files of the July 2026 simulations.
   600-1000 K (amendment A3); measured conductivities kept as context only.
 - Five models evaluated against both DFT label sets, per atom; the model behind each fine-tuned MD run
   identified from the forces stored in its trajectory.
-- Four main and nine Extended Data figures with per-panel source data, built from one encoding
-  vocabulary and checked automatically for alignment, closed frames and overlaps; generated results,
+- Four main and eight Extended Data figures with per-panel source data; generated results,
   reproduction and figure documents.
 - The fine-tuned models are compared with DFT (labels and AIMD) and with the foundation model only, not
   with experiment.
