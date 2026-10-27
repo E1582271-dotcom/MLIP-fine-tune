@@ -35,6 +35,13 @@ committed first ([protocol/](../protocol/), commit `951b94c`), and the outcome i
 | Mean-squared displacement curves, T/E/P time series, pressure | from the trajectories | No |
 | Per-atom predictions of all models on both label sets | 26 October | No |
 
+## External data
+
+| Data | Source | Use |
+|---|---|---|
+| Li6PS5Cl AIMD, 600-1200 K | Deng et al., Chem. Mater. 29, 281 (2017); files in materialsvirtuallab/matgenb at commit `2e77d515f23c507887856c265cdab84fa1a30082`, BSD-3-Clause | Transport reference of every model (amendment A3); derived values in `data/references/aimd_deng2017/` |
+| GBRV pseudopotentials | `all_pbe_UPF_v1.5.tar.gz` | Identified as the files used in July (see below) |
+
 ## Facts established in the rebuild
 
 - **Pseudopotentials.** Every QE output names the four GBRV files: `li_pbe_v1.4`, `p_pbe_v1.5`,
@@ -84,6 +91,7 @@ committed first ([protocol/](../protocol/), commit `951b94c`), and the outcome i
 | 11 July | Values published (the files in `data/published/`) |
 | 26 October | Raw files copied and checked; protocol committed; DFT and model ingest |
 | 27 October | Trajectory re-analysis on a cluster CPU node (amendment A2) |
+| 27 October | AIMD reference added (amendment A3) |
 
 Before 9 July the working repository fitted without weights, and its commit history quotes those
 values (for example 5.57 mS/cm for MACE-MP-0). Only the weighted fits are used here.

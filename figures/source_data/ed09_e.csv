@@ -1,0 +1,10 @@
+group,row,reference,y,sigma300_mS_cm,sigma300_low_mS_cm,sigma300_high_mS_cm
+published AIMD extrapolation,"Deng et al. 2017, as quoted by Baktash et al. 2020",deng2017_sigma300,1,0.002,0.002,0.002
+published AIMD extrapolation,de Klerk et al. 2016,deklerk2016_sigma300,2,290,290,290
+published AIMD extrapolation,Baktash et al. 2020,baktash2020,3,,0.06,0.3
+"MLIP extrapolation, this study (published)",MACE-MP-0,mace_416_200,5.5,5.5463,4.20734,7.31137
+"MLIP extrapolation, this study (published)",MatterSim,mattersim_416_200,6.5,0.348574,0.248512,0.488926
+"MLIP extrapolation, this study (published)","Fine-tuned, Gamma labels",ftG_416_200,7.5,0.454418,0.311212,0.66352
+"MLIP extrapolation, this study (reanalysis)","Fine-tuned, 2x2x2 labels",ftK_416_200,8.5,0.260328,0.185668,0.36501
+"measured, disordered polycrystal (context only)",Wang et al. 2018,wang2018,11,3.15,3.15,3.15
+"measured, disordered polycrystal (context only)",compiled range (Li et al. 2025),li2025_compiled,12,,0.06,1.1

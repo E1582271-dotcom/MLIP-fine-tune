@@ -1,0 +1,16 @@
+series,potential,kind,n_atoms,simulated_ps,x_plot_ps,Ea_eV,Ea_err_eV
+mace_52_050,MACE-MP-0,cell_52,52,50,42,0.212934,0.026535
+mace_52_100,MACE-MP-0,cell_52,52,100,92,0.302465,0.0323296
+mace_52_150,MACE-MP-0,cell_52,52,150,142,0.233777,0.0299081
+mattersim_52_050,MatterSim,cell_52,52,50,46,0.219498,0.0297158
+mattersim_52_100,MatterSim,cell_52,52,100,96,0.267618,0.0424301
+mattersim_52_150,MatterSim,cell_52,52,150,146,0.292533,0.0308496
+clx000_416_150,MACE-MP-0,independent_run,416,150,158,0.256374,0.0113574
+mace_416_200,MACE-MP-0,production_full,416,200,200,0.265581,0.0117987
+mattersim_416_200,MatterSim,production_full,416,200,204,0.346442,0.0135597
+mace_416_200,MACE-MP-0,production_window,416,50,50,0.22305,0.0133161
+mace_416_200,MACE-MP-0,production_window,416,100,100,0.231099,0.0124354
+mace_416_200,MACE-MP-0,production_window,416,150,150,0.249307,0.0121368
+mattersim_416_200,MatterSim,production_window,416,50,54,0.258413,0.0126366
+mattersim_416_200,MatterSim,production_window,416,100,104,0.295784,0.0143443
+mattersim_416_200,MatterSim,production_window,416,150,154,0.332793,0.0143027

@@ -72,6 +72,19 @@ For every trajectory ([src/mlipft/transport/estimators.py](../src/mlipft/transpo
   - pymatgen D in four consecutive 50-ps blocks.
   - kinisi with the fit starting at 10-50 % of the trajectory.
 
+## AIMD reference (amendment A3)
+
+- **Source.** The Li6PS5Cl AIMD trajectories of Deng et al. (2017), published with the notebooks of the paper (materialsvirtuallab/matgenb, BSD-3-Clause), downloaded at a pinned commit and checked by sha256 ([ingest/fetch_aimd.sh](../ingest/fetch_aimd.sh)).
+- **What the files record.** VASP AIMD of Li24P4S20Cl4 with the S/Cl arrangement of this repository's cell (Cl on 4a, S on 4c). The cell has 52 atoms with a = 10.10 Å. The time step is 2 fs, every 10th step is stored, and each of 600, 800, 1000 and 1200 K runs for 100 ps. The exchange-correlation functional and the thermostat are not recorded.
+- **Analysis** ([src/mlipft/ingest/aimd.py](../src/mlipft/ingest/aimd.py)). The trajectory is the stored first structure plus the stored displacements. It is analysed with the estimators and settings of the MLIP runs; only its own time step and frame interval differ:
+  - pymatgen D (`smoothed="max"`);
+  - kinisi D from 30 % of the run, seeds 0-10;
+  - MSD per species and the log-log slope of the Li MSD in the fit window.
+- **Comparison.** For each MLIP run, kinisi D is divided by the AIMD kinisi D at the same temperature, with the relative standard deviations added in quadrature. pymatgen ratios are reported alongside.
+  - The 600 K ratio compares sub-diffusive motion: the AIMD Li MSD is almost flat in the fit window there.
+  - Known differences: lattice parameter (10.10 against 10.28 Å, 5 % smaller volume), cell size (52 against 416 atoms for the production runs), and one trajectory per temperature.
+- **Why not experiment.** Every run simulates the fully ordered S/Cl approximant, whereas measured conductivities are of S/Cl-disordered polycrystals; in AIMD the two differ by about two orders of magnitude (Baktash et al. 2020). Published AIMD extrapolations of the ordered structure to 300 K span 0.002 to 290 mS/cm. Measured values are therefore shown only as context for the universal potentials.
+
 ## Reproduction of the July values
 
 [protocol/reproduction_rule.md](../protocol/reproduction_rule.md) fixes how the re-analysis is compared with the published values and which value is quoted. The outcome is in [docs/reproduction.md](reproduction.md), and the thermostat statistics are compared with the July run logs where these exist.
@@ -147,10 +160,11 @@ Predictions in float64 on a CPU ([src/mlipft/ingest/models.py](../src/mlipft/ing
   - if the two fine-tuned values differ by less than their combined 1-sigma uncertainty, the two runs are indistinguishable.
 - **Training-stage confound.** The Gamma-label run used the stage-two model and the 2x2x2-label run the stage-one model (see "Model identity"). On the three configurations held out by both fine-tunes, these two models differ in force error by about as much as the two stages of either fine-tune, so the comparison mixes label quality with training stage.
 - **Not tested here.** Two other possible causes of the slowdown cannot be tested with these data: both fine-tunes use the same pseudopotentials, and their training sets differ by only two configurations (22 and 24).
+- **Against AIMD.** The D of all three runs is also compared with AIMD at each temperature (see "AIMD reference").
 - **Not compared with experiment.** The fine-tuned models are not compared with experiment.
 
 ## Cl-excess series (part D)
 
 - Weighted Arrhenius fits of the four compositions.
 - The enhancement over x = 0, with an interval that combines the two fits' log half-widths in quadrature.
-- Comparison with the measured enhancement of Li5.5PS4.5Cl1.5 over Li6PS5Cl (Adeli et al. 2019). This is allowed because the series uses a universal potential.
+- The measured enhancement of Li5.5PS4.5Cl1.5 over Li6PS5Cl (Adeli et al. 2019) is shown as context only (measured on polycrystals).

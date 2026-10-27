@@ -30,7 +30,8 @@ JSON, extended XYZ), gzip-compressed where large. `python -m mlipft tables` turn
 | `models/fingerprints.csv` | 9 | Stored MD forces against each candidate model (which model drove each run) |
 | `models/training/*_record.jsonl` | | The MACE training records of both fine-tunes |
 | `models/evaluation.json` | | Package versions of the evaluation and the settings parsed from both training logs |
-| `references/literature.csv` | 5 | Experimental and simulated reference values with DOIs |
+| `references/literature.csv` | 10 | Experimental and simulated (MLIP-MD and AIMD) reference values with DOIs |
+| `references/aimd_deng2017/` | | The AIMD reference (amendment A3): pymatgen and kinisi D per temperature, kinisi seeds, MSD curves, `SOURCE.md` with the source commit, checksums and license |
 | `raw_manifest.csv` | 407 | Every file of the raw backup: path, role, size, sha256 (batch job ids masked) |
 | `sanitisation.csv` | | Every committed file that copies a raw file, with both checksums and the rule applied |
 
@@ -45,6 +46,7 @@ Units are in the column names (`_cm2_s`, `_mS_cm`, `_meV_A`, `_kbar`, ...). Run 
 | 42 MD trajectories (ASE) | 3.3 GB | Raw backup (two copies); sha256 in `md/transport.csv` and `raw_manifest.csv` |
 | Model weights (foundation, eight fine-tuned files) | 70 MB | Raw backup; sha256 in `models/registry.csv`. MACE-MP-0 small is downloaded by `mace_mp(model="small")` |
 | GBRV pseudopotentials | 2 MB | Public archive; `generation/labels/fetch_pseudos.sh` downloads and checks them |
+| AIMD reference trajectories (Deng et al. 2017) | 66 MB | Public (materialsvirtuallab/matgenb, BSD-3-Clause); `ingest/fetch_aimd.sh` downloads them at a pinned commit and checks them |
 | July batch job logs and scripts | small | Raw backup; facts taken from them are in `docs/provenance.md` |
 
 To rerun the ingest from the raw backup:
@@ -54,6 +56,8 @@ pip install -r requirements-ingest.lock.txt && pip install -e . --no-deps
 export MLIPFT_RAW=<raw backup>   # layout: data/traj*/, finetune/, foundation/ (see raw_manifest.csv)
 make ingest                      # DFT, models, then the 42 trajectories (about 19 h run by run, mostly kinisi)
 ```
+
+The AIMD reference is re-derived with `ingest/fetch_aimd.sh <folder>` and `python -m mlipft ingest aimd --source <folder>`.
 
 The values in `data/md/` were made on a cluster instead (amendment A2): one job per MD series with
 [ingest/reanalyse_series.pbs](../ingest/reanalyse_series.pbs), which runs

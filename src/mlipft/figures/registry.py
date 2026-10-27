@@ -7,7 +7,7 @@ from pathlib import Path
 # name -> (module, title)
 FIGURES = {
     "fig1": ("fig1_design", "Study design, model system and data"),
-    "fig2": ("fig2_universal", "Universal potentials against experiment"),
+    "fig2": ("fig2_universal", "Universal potentials against AIMD"),
     "fig3": ("fig3_dft", "Fine-tuned models against their DFT reference"),
     "fig4": ("fig4_transport", "What fine-tuning changes in Li transport"),
     "ed01": ("ed01_stability", "Temperature, energy and pressure of every MD run"),
@@ -18,6 +18,7 @@ FIGURES = {
     "ed06": ("ed06_training", "Training records of the two fine-tunes"),
     "ed07": ("ed07_models", "Model identity and the full cross-evaluation"),
     "ed08": ("ed08_clexcess", "Cl-excess series under MACE-MP-0"),
+    "ed09": ("ed09_aimd", "The AIMD reference"),
 }
 
 
