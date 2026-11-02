@@ -1,0 +1,4 @@
+temperature_K,frames,n_frames,rms_meV_A,match
+600,0;n/3;2n/3;n-1,4000,0.001982769124,true
+800,0;n/3;2n/3;n-1,4000,0.002001812604,true
+1000,0;n/3;2n/3;n-1,4000,0.002129203071,true

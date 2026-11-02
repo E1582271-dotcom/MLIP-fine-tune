@@ -18,12 +18,13 @@ import pandas as pd
 
 from .. import paths
 
-MODELS = ("foundation", "ftG_s1", "ftG_s2", "ftK_s1", "ftK_s2")
+MODELS = ("foundation", "mattersim", "ftG_s1", "ftG_s2", "ftK_s1", "ftK_s2")
 LABELS = ("gamma", "k222")
 ELEMENTS = ("Li", "P", "S", "Cl")
 SUBSETS = ("H3", "H2", "T22", "All27")
 OWN = {"ftG_s1": ("gamma", "ftG"), "ftG_s2": ("gamma", "ftG"), "ftK_s1": ("k222", "ftK"), "ftK_s2": ("k222", "ftK")}
-DROVE_MD = {"foundation": "mace_416_200", "ftG_s2": "ftG_416_200", "ftK_s1": "ftK_416_200"}
+DROVE_MD = {"foundation": "mace_416_200", "mattersim": "mattersim_416_200", "ftG_s2": "ftG_416_200",
+            "ftK_s1": "ftK_416_200"}
 
 
 def load() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
@@ -32,6 +33,13 @@ def load() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
                                                                                  "ftK_split"]], on="config_id")
     forces = pd.read_csv(paths.MODELS / "predictions_forces.csv.gz").merge(configs[["config_id", "subset"]],
                                                                            on="config_id")
+    # MatterSim (amendment A4) comes from its own files, so the MACE ingest can be rerun on its own
+    ms_energy = pd.read_csv(paths.MODELS / "predictions_mattersim_energy.csv")
+    ms_forces = pd.read_csv(paths.MODELS / "predictions_mattersim_forces.csv.gz")
+    energy = energy.merge(ms_energy, on=["config_id", "n_atoms"], how="left", validate="one_to_one")
+    forces = forces.merge(ms_forces, on=["config_id", "atom", "species"], how="left", validate="one_to_one")
+    if energy["mattersim_energy_eV"].isna().any() or forces["mattersim_fx"].isna().any():
+        raise ValueError("MatterSim predictions do not cover every configuration and atom")
     return configs, energy, forces
 
 

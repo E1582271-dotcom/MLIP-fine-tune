@@ -4,7 +4,8 @@ Rebuild layer (needs only data/): ``mlipft tables | figures | docs | check-repo 
 ``mlipft figures [--only fig2 aimd] [--strict] [--audit DIR]`` adds the figure QA gate and crop audit.
 Ingest layer (needs the raw backup in MLIPFT_RAW and the ingest dependencies):
 ``mlipft ingest published --legacy <repo> | dft | models | trajectories [--workers N] | collect | manifest``;
-``mlipft ingest aimd --source <folder>`` (the AIMD reference, amendment A3).
+``mlipft ingest aimd --source <folder>`` (the AIMD reference, amendment A3);
+``mlipft ingest mattersim --source <json>`` (MatterSim against the labels, amendment A4).
 """
 from __future__ import annotations
 
@@ -44,6 +45,10 @@ def _ingest(args) -> int:
         from .ingest import aimd
 
         aimd.ingest(args.source)
+    elif args.step == "mattersim":
+        from .ingest import mattersim
+
+        mattersim.ingest(args.source)
     return 0
 
 
@@ -116,9 +121,9 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(prog="mlipft", description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
     ingest = sub.add_parser("ingest", help="raw backup -> data/ (local only)")
-    ingest.add_argument("step", choices=("published", "dft", "models", "trajectories", "collect", "manifest", "aimd"))
+    ingest.add_argument("step", choices=("published", "dft", "models", "trajectories", "collect", "manifest", "aimd", "mattersim"))
     ingest.add_argument("--legacy", help="working repository (for 'published')")
-    ingest.add_argument("--source", help="folder of the downloaded AIMD files (for 'aimd')")
+    ingest.add_argument("--source", help="AIMD folder ('aimd') or MatterSim output ('mattersim')")
     ingest.add_argument("--workers", type=int, default=4)
     ingest.set_defaults(func=_ingest)
     sub.add_parser("tables", help="data/ -> results/").set_defaults(func=_tables)

@@ -1,0 +1,12 @@
+{
+ "checkpoint": "mattersim-v1.0.0-1M.pth",
+ "checkpoint_sha256": "28b0b0b0f13efefee06b47ea4c9105a26bd3e2c8396da193430da96b3b49a8be",
+ "device": "cpu",
+ "packages": {
+  "ase": "3.29.0",
+  "mattersim": "1.2.3",
+  "numpy": "2.2.5",
+  "torch": "2.5.0"
+ },
+ "precision": "float32"
+}

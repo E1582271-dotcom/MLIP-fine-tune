@@ -309,7 +309,7 @@ def _caption() -> str:
                          for m in models)
     pk = cross_configs[cross_configs["labels"] == "k222"].groupby("model")["pressure_error_kbar"].mean()
     n_pressure = cross_configs[(cross_configs["labels"] == "k222") & (cross_configs["model"] == "foundation")]
-    tuned_mean = pk.drop("foundation")
+    tuned_mean = pk.loc[[m for m in models if m != "foundation"]]
     pfloor = floor.loc[(floor["subset"] == "All27") & (floor["element"] == "all"), "pressure_rmse_kbar"].iloc[0]
     dec = decomposition.set_index(["model", "subset"])
     floors = {s: dec.xs(s, level="subset")["floor_meV_A"].iloc[0] for s in DECOMPOSITION_SUBSETS}

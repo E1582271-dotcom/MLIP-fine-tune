@@ -78,3 +78,20 @@ def test_predictions_carry_the_dft_labels():
         assert list(part["species"]) == frame["species"]
         assert np.allclose(part[["dft_gamma_fx", "dft_gamma_fy", "dft_gamma_fz"]].to_numpy(), frame["dft_forces"],
                            rtol=1e-9, atol=1e-12)
+
+
+def test_mattersim_is_the_model_of_the_july_runs_and_covers_every_atom():
+    """Amendment A4: the evaluated MatterSim reproduces the forces stored in its MD runs."""
+    import json
+
+    identity = _csv(paths.MODELS / "mattersim_identity.csv")
+    assert sorted(identity["temperature_K"]) == [600, 800, 1000]
+    assert identity["match"].astype(str).str.lower().eq("true").all() and (identity["rms_meV_A"] < 1.0).all()
+    meta = json.loads((paths.MODELS / "mattersim_evaluation.json").read_text())
+    assert meta["checkpoint"] == "mattersim-v1.0.0-1M.pth" and meta["precision"] == "float32"
+    energy = _csv(paths.MODELS / "predictions_mattersim_energy.csv")
+    forces = _csv(paths.MODELS / "predictions_mattersim_forces.csv.gz")
+    reference = _csv(paths.MODELS / "predictions_forces.csv.gz")
+    assert len(energy) == 27 and len(forces) == len(reference) == 27 * 52
+    assert (forces[["config_id", "atom", "species"]].to_numpy() == reference[["config_id", "atom", "species"]]
+            .to_numpy()).all()

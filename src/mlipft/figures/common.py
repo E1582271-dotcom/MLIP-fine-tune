@@ -86,12 +86,15 @@ def primary_models(cross: pd.DataFrame) -> list[str]:
 def md_models(cross: pd.DataFrame) -> dict[str, str]:
     """Run family -> id of the model that drove its MD run, from the ``drove_md`` column.
 
-    For the committed tables: ``{"foundation": "foundation", "ftG": "ftG_s2", "ftK": "ftK_s1"}``.
+    For the committed tables: ``{"foundation": "foundation", "ftG": "ftG_s2", "ftK": "ftK_s1"}``. MatterSim
+    also drove runs but is not a MACE run family: the figures draw it as itself.
     """
     drove = cross.loc[cross["drove_md"].fillna("").astype(str) != "", "model"].unique()
     out: dict[str, str] = {}
     for model in drove:
         family = str(model).split("_")[0]
+        if family not in RUN_FAMILIES and family in style.UNIVERSAL_MODELS:
+            continue
         if out.get(family, model) != model:
             raise ValueError(f"two models drove the {family} runs: {out[family]} and {model}")
         out[family] = str(model)
