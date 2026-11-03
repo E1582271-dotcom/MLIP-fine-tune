@@ -78,6 +78,7 @@ def _load():
     runs = common.read(RUNS)
     fits = common.read(FITS)
     thermostat = common.read(THERMOSTAT)
+    thermostat = thermostat[~thermostat["series"].isin(common.PENDING_SERIES)].reset_index(drop=True)
     logs = common.read(LOGS)
     configs = common.read(CONFIGS)
     return runs, fits, thermostat, logs, configs
@@ -422,6 +423,7 @@ def _seed_scatter(seeds: pd.DataFrame) -> pd.DataFrame:
 
 def _seed_table() -> pd.DataFrame:
     transport = common.read(TRANSPORT)
+    transport = transport[~transport["series"].isin(common.PENDING_SERIES)]
     seeds = common.read(SEEDS)
     scatter = _seed_scatter(seeds).merge(transport[["run_id", "series", "temperature_K", "kinisi_D_cm2_s",
                                                     "kinisi_D_std_cm2_s", "seed_scatter_D_rel"]], on="run_id")

@@ -1,7 +1,8 @@
-"""Re-analysis of the July MD trajectories (raw backup -> work directory -> data/md/).
+"""Re-analysis of the MD trajectories (raw backup -> work directory -> data/md/): the July runs and the
+run of amendment A5.
 
 ``analyse_run`` reads one trajectory and writes ``<work>/md/<run_id>.json`` (scalars) and
-``<run_id>.npz`` (curves and series). ``collect`` turns the 42 results into the committed tables
+``<run_id>.npz`` (curves and series). ``collect`` turns the 45 results into the committed tables
 of ``data/md/``. Settings follow ``protocol/reproduction_rule.md``; nothing here depends on
 the published values.
 

@@ -24,6 +24,7 @@ kinisi D of each run divided by kinisi D of AIMD at the same temperature. At 600
 | MatterSim | 416 | 200 | 1.8 +/- 0.8 | 1.9 +/- 0.6 | 1.9 +/- 0.4 |
 | Fine-tuned, Gamma labels (stage two) | 416 | 200 | 1.4 +/- 0.7 | 2.1 +/- 0.6 | 1.8 +/- 0.3 |
 | Fine-tuned, 2x2x2 labels (stage one) | 416 | 200 | 1.4 +/- 0.7 | 2.6 +/- 0.8 | 1.9 +/- 0.4 |
+| Fine-tuned, 2x2x2 labels (stage two) | 416 | 200 | 1.1 +/- 0.6 | 2.9 +/- 0.9 | 1.7 +/- 0.3 |
 | MACE-MP-0 (foundation) | 52 | 50 | 10 +/- 5 | 3.2 +/- 1 | 2.9 +/- 0.7 |
 | MACE-MP-0 (foundation) | 52 | 100 | 4.2 +/- 2 | 6.9 +/- 2 | 3.0 +/- 0.7 |
 | MACE-MP-0 (foundation) | 52 | 150 | 7.6 +/- 4 | 4.3 +/- 2 | 2.7 +/- 0.6 |
@@ -65,7 +66,7 @@ Sampling checks (re-analysis values):
 | MatterSim | 416 atoms, first part of the 200-ps run | 150 | 0.333 ± 0.014 | 0.485 [0.34, 0.69] |
 
 
-Diagnostic fixed in `protocol/analysis_plan.md` (reported, never used to exclude a run): runs whose Li MSD has a log-log slope outside 0.8-1.2 in the kinisi fit window, where diffusion is not yet linear in time (14 of 42):
+Diagnostic fixed in `protocol/analysis_plan.md` (reported, never used to exclude a run): runs whose Li MSD has a log-log slope outside 0.8-1.2 in the kinisi fit window, where diffusion is not yet linear in time (15 of 45):
 
 | Run | MSD log-log slope | pymatgen D (cm2/s) | kinisi D (cm2/s) |
 |---|---|---|---|
@@ -82,6 +83,7 @@ Diagnostic fixed in `protocol/analysis_plan.md` (reported, never used to exclude
 | mattersim_416_200_600K | 0.40 | 2.25e-6 | 1.26e-6 |
 | ftG_416_200_600K | 0.35 | 2.26e-6 | 9.98e-7 |
 | ftK_416_200_600K | 0.51 | 1.96e-6 | 9.96e-7 |
+| ftK2_416_200_600K | 0.37 | 1.76e-6 | 8.02e-7 |
 | clx000_416_150_600K | 0.74 | 7.66e-6 | 6.81e-6 |
 
 
@@ -113,13 +115,14 @@ Force RMSE per element against 2x2x2 labels on H3 (meV/A):
 
 ## C. Transport: fine-tuned models against the foundation
 
-416 atoms, 200 ps, re-analysis values for all three:
+416 atoms, 200 ps, re-analysis values for all four:
 
 | Model | Ea (eV) | sigma(300 K) (mS/cm) | sigma / foundation |
 |---|---|---|---|
 | MACE-MP-0 (foundation) | 0.266 ± 0.012 | 5.54 [4.2, 7.3] | 1.0 |
 | Fine-tuned, Gamma labels (stage two) | 0.335 ± 0.016 | 0.454 [0.31, 0.67] | 0.082 |
 | Fine-tuned, 2x2x2 labels (stage one) | 0.360 ± 0.014 | 0.260 [0.19, 0.37] | 0.047 |
+| Fine-tuned, 2x2x2 labels (stage two) | 0.357 ± 0.015 | 0.272 [0.19, 0.39] | 0.049 |
 
 
 D of each fine-tuned model divided by D of the foundation:
@@ -132,12 +135,27 @@ D of each fine-tuned model divided by D of the foundation:
 | Fine-tuned, 2x2x2 labels (stage one) | 600 | 0.28 | 0.16 ± 0.03 |
 | Fine-tuned, 2x2x2 labels (stage one) | 800 | 0.51 | 0.51 ± 0.06 |
 | Fine-tuned, 2x2x2 labels (stage one) | 1000 | 0.58 | 0.58 ± 0.05 |
+| Fine-tuned, 2x2x2 labels (stage two) | 600 | 0.25 | 0.13 ± 0.03 |
+| Fine-tuned, 2x2x2 labels (stage two) | 800 | 0.56 | 0.57 ± 0.06 |
+| Fine-tuned, 2x2x2 labels (stage two) | 1000 | 0.53 | 0.52 ± 0.05 |
 
 
-Reading fixed in `protocol/analysis_plan.md`: f = -0.22, ln(sigma_K / sigma_G) = -0.56 ± 0.51: **not explained**. The two fine-tuned runs used models from different training stages (Gamma labels: stage two; 2x2x2 labels: stage one).
+Reading fixed in `protocol/analysis_plan.md`: f = -0.22, ln(sigma_K / sigma_G) = -0.56 ± 0.51: **not explained**. The two fine-tuned runs it compares used models from different training stages (Gamma labels: stage two; 2x2x2 labels: stage one).
 
 
-Against AIMD (amendment A3), D at 800 and 1000 K is 5.1 and 3.2 times the AIMD value for MACE-MP-0 (foundation); 2.1 and 1.8 times the AIMD value for Fine-tuned, Gamma labels (stage two); 2.6 and 1.9 times the AIMD value for Fine-tuned, 2x2x2 labels (stage one). The slowdown that fine-tuning causes moves D towards AIMD.
+At equal training stage (amendment A5: both runs stage two; the primary Part C reading): f = -0.20, ln(sigma_K / sigma_G) = -0.51 ± 0.54: **indistinguishable**.
+
+
+Training stage at equal labels (amendment A5, descriptive): D of the stage-two 2x2x2 run divided by D of the stage-one run; sigma(300 K) ratio 1.0 (ln ratio uncertainty 0.50).
+
+| Model | T (K) | pymatgen | kinisi |
+|---|---|---|---|
+| Fine-tuned, 2x2x2 labels (stage two) | 600 | 0.90 | 0.81 ± 0.2 |
+| Fine-tuned, 2x2x2 labels (stage two) | 800 | 1.1 | 1.1 ± 0.1 |
+| Fine-tuned, 2x2x2 labels (stage two) | 1000 | 0.91 | 0.89 ± 0.08 |
+
+
+Against AIMD (amendment A3), D at 800 and 1000 K is 5.1 and 3.2 times the AIMD value for MACE-MP-0 (foundation); 2.1 and 1.8 times the AIMD value for Fine-tuned, Gamma labels (stage two); 2.6 and 1.9 times the AIMD value for Fine-tuned, 2x2x2 labels (stage one); 2.9 and 1.7 times the AIMD value for Fine-tuned, 2x2x2 labels (stage two). The slowdown that fine-tuning causes moves D towards AIMD.
 
 
 ## D. Cl-excess series (MACE-MP-0, 150 ps)
@@ -189,6 +207,9 @@ Statistics over the production part of each run, recomputed from the trajectorie
 | ftK_416_200_600K | 601.8 | 24.4 | 4.1 (4.0) | 0.0030 | -0.802 | - |
 | ftK_416_200_800K | 802.8 | 31.4 | 3.9 (4.0) | 0.0080 | -0.446 | md_runs_ft27k.json |
 | ftK_416_200_1000K | 1002.4 | 42.0 | 4.2 (4.0) | -0.0036 | -0.0635 | - |
+| ftK2_416_200_600K | 597.9 | 23.9 | 4.0 (4.0) | 0.0073 | -0.788 | md_runs_ft27k_s2.json |
+| ftK2_416_200_800K | 802.0 | 31.0 | 3.9 (4.0) | 0.0020 | -0.431 | md_runs_ft27k_s2.json |
+| ftK2_416_200_1000K | 997.2 | 41.3 | 4.1 (4.0) | -0.0011 | -0.0562 | md_runs_ft27k_s2.json |
 | clx000_416_150_600K | 600.1 | 24.0 | 4.0 (4.0) | -0.011 | -0.360 | - |
 | clx000_416_150_800K | 800.9 | 32.6 | 4.1 (4.0) | -0.0056 | -0.0240 | - |
 | clx000_416_150_1000K | 998.6 | 40.5 | 4.0 (4.0) | -0.011 | 0.344 | md_runs_dope_cl100.json |

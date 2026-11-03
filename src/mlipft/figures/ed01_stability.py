@@ -36,6 +36,7 @@ TIMESERIES = paths.MD / "timeseries.csv.gz"
 MSD = paths.MD / "msd.csv.gz"
 BLOCK_PS = 5.0  # blocks for the standard errors (ten 0.5-ps blocks)
 SERIES_TEMPERATURE = 1000  # temperature of the production time series in d and of the MSD in f
+PRODUCTION = tuple(s for s in C.PRODUCTION_SERIES if s not in common.PENDING_SERIES)
 SERIES_ORDER = ("mace_52_050", "mace_52_100", "mace_52_150", "mattersim_52_050", "mattersim_52_100",
                 "mattersim_52_150", "mace_416_200", "mattersim_416_200", "ftG_416_200", "ftK_416_200",
                 "clx000_416_150", "clx025_408_150", "clx050_400_150", "clx075_392_150")
@@ -70,6 +71,7 @@ F_TOP, F_HEIGHT, F_GAP = 200.0, 31.0, 3.0
 
 def _load():
     thermo = common.read(THERMOSTAT)
+    thermo = thermo[~thermo["series"].isin(common.PENDING_SERIES)].reset_index(drop=True)
     series = common.read(TIMESERIES)
     return thermo, series
 
@@ -285,7 +287,7 @@ def _panel_c(ax, thermo: pd.DataFrame, errors: pd.DataFrame, positions: dict[str
 
 
 def _panel_d(axes, series: pd.DataFrame) -> None:
-    runs = {s: C.run_id(s, SERIES_TEMPERATURE) for s in C.PRODUCTION_SERIES}
+    runs = {s: C.run_id(s, SERIES_TEMPERATURE) for s in PRODUCTION}
     rows = []
     for series_id, run in runs.items():
         frame = series[series["run_id"] == run].sort_values("time_ps")
@@ -326,7 +328,7 @@ def _panel_d(axes, series: pd.DataFrame) -> None:
     axes[-1].set_xlabel("Production time (ps)")
     handles = [Line2D([0], [0], color=style.MODEL_COLORS[PRODUCTION_MODELS[s]], lw=1.0,
                       ls=D_LINES.get(PRODUCTION_MODELS[s], "-"),
-                      label=_model_name(PRODUCTION_MODELS[s])) for s in C.PRODUCTION_SERIES]
+                      label=_model_name(PRODUCTION_MODELS[s])) for s in PRODUCTION]
     axes[0].legend(handles=handles, loc="lower left", bbox_to_anchor=(0.0, 1.02), ncol=2, fontsize=style.SMALL,
                    handlelength=1.8, handletextpad=0.4, columnspacing=1.2, labelspacing=0.35, borderaxespad=0.0)
     axes[2].text(0.99, 0.96, f"{SERIES_TEMPERATURE} K; thin, 0.5-ps blocks; thick, {BLOCK_PS:g}-ps blocks",
@@ -345,7 +347,7 @@ def _panel_e(axes, thermo: pd.DataFrame) -> None:
     groups, x, positions = [], 0.0, []
     previous = None
     for row in checked.itertuples():
-        family = row.series if row.n_atoms < 100 else ("production" if row.series in C.PRODUCTION_SERIES
+        family = row.series if row.n_atoms < 100 else ("production" if row.series in PRODUCTION
                                                         else "clexcess")
         step = 1.0 if row.n_atoms < 100 else WIDE_SLOT
         if previous is not None and family != previous:
@@ -430,7 +432,7 @@ def _panel_e(axes, thermo: pd.DataFrame) -> None:
 
 def _panel_f(axes, msd: pd.DataFrame) -> None:
     rows = []
-    for index, (ax, series) in enumerate(zip(axes, C.PRODUCTION_SERIES)):
+    for index, (ax, series) in enumerate(zip(axes, PRODUCTION)):
         run = C.run_id(series, SERIES_TEMPERATURE)
         model = PRODUCTION_MODELS[series]
         frame = msd[msd["run_id"] == run].sort_values("lag_ps")
@@ -531,20 +533,20 @@ def _caption() -> str:
     failed_sizes = sorted(set(failed["n_atoms"]))
     failed_lengths = sorted(set(int(C.SERIES_BY_ID[s]["production_ps"]) for s in failed["series"]))
     p = {s: thermo.loc[thermo["run_id"] == C.run_id(s, SERIES_TEMPERATURE), "mean_P_GPa"].iloc[0]
-         for s in C.PRODUCTION_SERIES}
-    p_text = _by_model({s: f"{p[s]:+.2f}" for s in C.PRODUCTION_SERIES})
-    ts = series[series["run_id"].isin([C.run_id(s, SERIES_TEMPERATURE) for s in C.PRODUCTION_SERIES])]
+         for s in PRODUCTION}
+    p_text = _by_model({s: f"{p[s]:+.2f}" for s in PRODUCTION})
+    ts = series[series["run_id"].isin([C.run_id(s, SERIES_TEMPERATURE) for s in PRODUCTION])]
     t_range = (ts["T_K"].min(), ts["T_K"].max())
     big_n = sorted(set(big["n_atoms"]))
-    msd_runs = msd[msd["run_id"].isin([C.run_id(s, SERIES_TEMPERATURE) for s in C.PRODUCTION_SERIES])]
+    msd_runs = msd[msd["run_id"].isin([C.run_id(s, SERIES_TEMPERATURE) for s in PRODUCTION])]
     tail = msd_runs.sort_values("lag_ps").groupby("run_id").tail(1).set_index("run_id")
-    tails = {s: tail.loc[C.run_id(s, SERIES_TEMPERATURE)] for s in C.PRODUCTION_SERIES}
+    tails = {s: tail.loc[C.run_id(s, SERIES_TEMPERATURE)] for s in PRODUCTION}
     max_lag = float(tail["lag_ps"].max())
 
-    li_min = min(tails[s]["msd_Li_A2"] for s in C.PRODUCTION_SERIES)
-    p_max = max(tails[s]["msd_P_A2"] for s in C.PRODUCTION_SERIES)
-    cl_max = max(tails[s]["msd_Cl_A2"] for s in C.PRODUCTION_SERIES)
-    s_text = _by_model({s: f"{tails[s]['msd_S_A2']:.2f}" for s in C.PRODUCTION_SERIES})
+    li_min = min(tails[s]["msd_Li_A2"] for s in PRODUCTION)
+    p_max = max(tails[s]["msd_P_A2"] for s in PRODUCTION)
+    cl_max = max(tails[s]["msd_Cl_A2"] for s in PRODUCTION)
+    s_text = _by_model({s: f"{tails[s]['msd_S_A2']:.2f}" for s in PRODUCTION})
     n_runs = len(thermo)
     n_series = thermo["series"].nunique()
     return (

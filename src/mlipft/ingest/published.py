@@ -4,7 +4,8 @@
   ``LEGACY_COMMIT`` (read with ``git show``, never from its working tree) into ``data/published/``
   byte for byte, with ``SHA256SUMS``. These are the values the re-analysis is compared with.
 * ``run_logs(raw)`` parses the run logs written by the MD driver (``data/md_runs*.json`` in the raw
-  backup) into ``data/md/run_logs.csv``; trajectory paths are reduced to ``<folder>/<file>``.
+  backup: the July runs and the run of amendment A5) into ``data/md/run_logs.csv``; trajectory paths are
+  reduced to ``<folder>/<file>``.
 """
 from __future__ import annotations
 
@@ -21,7 +22,8 @@ PUBLISHED_FILES = ("data/metrics.json", "data/metrics_long.json", "data/metrics_
                    "data/metrics_dope_cl175.json", "data/structures.json", "data/doped/doped.json")
 RUN_LOG_FILES = ("md_runs.json", "md_runs_100ps.json", "md_runs_long.json", "md_runs_prod.json", "md_runs_prod_ms.json",
                  "md_runs_ft27k.json", "md_runs_dope_cl100.json", "md_runs_dope_cl125.json", "md_runs_dope_cl150.json",
-                 "md_runs_dope_cl175.json", "md_runs_mace_baseline.json")
+                 "md_runs_dope_cl175.json", "md_runs_mace_baseline.json",
+                 "md_runs_ft27k_s2.json")  # the run log of amendment A5 (November 2026)
 RUN_LOG_COLUMNS = ("log_file", "trajectory", "mlip", "temperature_K", "n_steps", "timestep_fs", "production_ps",
                    "log_every", "n_frames", "mean_T", "std_T", "mean_E_per_atom", "drift_meV_atom_ps", "wall_seconds")
 

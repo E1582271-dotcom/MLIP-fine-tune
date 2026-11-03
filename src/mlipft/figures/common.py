@@ -35,6 +35,7 @@ SHORT_LABELS = {"foundation": "MACE-MP-0", "ftG_s1": "Gamma, stage 1", "ftG_s2":
 LABEL_SET_NAMES = {"gamma": "Gamma", "k222": "2x2x2"}
 ELEMENTS = ("Li", "P", "S", "Cl")
 RUN_FAMILIES = ("foundation", "ftG", "ftK")  # MD runs of MACE-MP-0 and of the two fine-tunes
+PENDING_SERIES = ("ftK2_416_200",)  # in the tables (amendment A5), not yet drawn: the figures skip it for now
 CAGED_SLOPE = 0.25  # AIMD Li MSD log-log slope in the fit window below which the Li ions are caged
 MARKER_SIZE = 3.4  # default marker diameter (pt) of the style helpers
 _CONFIG = re.compile(r"T(\d+)_f(\d+)")

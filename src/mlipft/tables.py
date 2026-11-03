@@ -22,12 +22,13 @@ from .transport.arrhenius import arrhenius_fit
 
 FIT_FIELDS = ("n_points", "weighted", "Ea_eV", "Ea_err_eV", "sigma300_mS_cm", "sigma300_min_mS_cm",
               "sigma300_max_mS_cm", "R2", "slope", "slope_err", "intercept", "intercept_err")
-PART_C = {"foundation": "mace_416_200", "ftG": "ftG_416_200", "ftK": "ftK_416_200"}
+PART_C = {"foundation": "mace_416_200", "ftG": "ftG_416_200", "ftK": "ftK_416_200", "ftK2": "ftK2_416_200"}
 AIMD = paths.REFERENCES / "aimd_deng2017" / "transport.csv"
-# Runs compared with AIMD (amendment A3): the four production series, the 52-atom runs (the AIMD cell
-# size) and the second 416-atom MACE-MP-0 run.
-AIMD_SERIES = ("mace_416_200", "mattersim_416_200", "ftG_416_200", "ftK_416_200", "mace_52_050", "mace_52_100",
-               "mace_52_150", "mattersim_52_050", "mattersim_52_100", "mattersim_52_150", "clx000_416_150")
+# Runs compared with AIMD (amendment A3): the production series, the 52-atom runs (the AIMD cell size)
+# and the second 416-atom MACE-MP-0 run.
+AIMD_SERIES = ("mace_416_200", "mattersim_416_200", "ftG_416_200", "ftK_416_200", "ftK2_416_200", "mace_52_050",
+               "mace_52_100", "mace_52_150", "mattersim_52_050", "mattersim_52_100", "mattersim_52_150",
+               "clx000_416_150")
 
 
 def _read(path: Path, **kwargs) -> pd.DataFrame:
@@ -162,19 +163,27 @@ def convergence(transport: pd.DataFrame, fit_table: pd.DataFrame) -> pd.DataFram
     return pd.DataFrame(rows)
 
 
+def _d_ratio(per_run: pd.DataFrame, name: str, reference: str, temperature: int) -> dict:
+    model = per_run.loc[C.run_id(PART_C[name], temperature)]
+    base = per_run.loc[C.run_id(PART_C[reference], temperature)]
+    rel = math.hypot(model["kinisi_D_std_cm2_s"] / model["kinisi_D_cm2_s"],
+                     base["kinisi_D_std_cm2_s"] / base["kinisi_D_cm2_s"])
+    return {"model": name, "reference": reference, "temperature_K": temperature,
+            "pymatgen_D_ratio": model["D_cm2_s"] / base["D_cm2_s"],
+            "kinisi_D_ratio": model["kinisi_D_cm2_s"] / base["kinisi_D_cm2_s"], "kinisi_D_ratio_rel_err": rel}
+
+
 def transport_comparison(transport: pd.DataFrame, fit_table: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Part C: per-temperature D ratios and the fitted sigma(300 K) of the three models (re-analysis)."""
+    """Part C: per-temperature D ratios and the fitted sigma(300 K) of the fine-tuned runs (re-analysis).
+
+    Readings: ``reading``, the one of ``analysis_plan.md`` (2x2x2 run at stage one against the Gamma run at
+    stage two); ``reading_A5``, the same with the stage-two 2x2x2 run (amendment A5, the primary reading);
+    ``stage_A5``, the stage-two over the stage-one 2x2x2 run (descriptive). The D ratios are to the
+    foundation run, and for the stage effect the stage-two 2x2x2 run to the stage-one one.
+    """
     per_run = transport.set_index("run_id")
-    ratio_rows = []
-    for name in ("ftG", "ftK"):
-        for t in C.TEMPERATURES:
-            model, base = per_run.loc[C.run_id(PART_C[name], t)], per_run.loc[C.run_id(PART_C["foundation"], t)]
-            rel = math.hypot(model["kinisi_D_std_cm2_s"] / model["kinisi_D_cm2_s"],
-                             base["kinisi_D_std_cm2_s"] / base["kinisi_D_cm2_s"])
-            ratio_rows.append({"model": name, "temperature_K": t,
-                               "pymatgen_D_ratio": model["D_cm2_s"] / base["D_cm2_s"],
-                               "kinisi_D_ratio": model["kinisi_D_cm2_s"] / base["kinisi_D_cm2_s"],
-                               "kinisi_D_ratio_rel_err": rel})
+    ratio_rows = [_d_ratio(per_run, name, "foundation", t) for name in ("ftG", "ftK", "ftK2") for t in C.TEMPERATURES]
+    ratio_rows += [_d_ratio(per_run, "ftK2", "ftK", t) for t in C.TEMPERATURES]
     reanalysis = fit_table[fit_table["source"] == "reanalysis"].set_index("series")
     summary = []
     half = {}
@@ -185,15 +194,19 @@ def transport_comparison(transport: pd.DataFrame, fit_table: pd.DataFrame) -> tu
                         "sigma300_ratio_to_foundation": fit["sigma300_mS_cm"]
                         / reanalysis.loc[PART_C["foundation"], "sigma300_mS_cm"]})
     s = {name: reanalysis.loc[series, "sigma300_mS_cm"] for name, series in PART_C.items()}
-    gap = math.log(s["ftK"] / s["ftG"])
-    gap_err = math.hypot(half["ftK"], half["ftG"])
-    f = gap / math.log(s["foundation"] / s["ftG"])
-    if abs(gap) < gap_err:
-        reading = "indistinguishable"
-    else:
-        reading = "not explained" if f < 0.25 else ("explains most" if f > 0.75 else "partial")
-    summary.append({"model": "reading", "series": "", "f_recovered_fraction": f, "ln_sigma_ftK_over_ftG": gap,
-                    "ln_sigma_ftK_over_ftG_err": gap_err, "reading": reading})
+    for label, k222 in (("reading", "ftK"), ("reading_A5", "ftK2")):
+        gap = math.log(s[k222] / s["ftG"])
+        gap_err = math.hypot(half[k222], half["ftG"])
+        f = gap / math.log(s["foundation"] / s["ftG"])
+        if abs(gap) < gap_err:
+            reading = "indistinguishable"
+        else:
+            reading = "not explained" if f < 0.25 else ("explains most" if f > 0.75 else "partial")
+        summary.append({"model": label, "series": PART_C[k222], "f_recovered_fraction": f,
+                        "ln_sigma_ftK_over_ftG": gap, "ln_sigma_ftK_over_ftG_err": gap_err, "reading": reading})
+    summary.append({"model": "stage_A5", "series": PART_C["ftK2"],
+                    "sigma300_ratio_stage2_over_stage1": s["ftK2"] / s["ftK"],
+                    "ln_sigma_stage2_over_stage1_err": math.hypot(half["ftK2"], half["ftK"])})
     return pd.DataFrame(ratio_rows), pd.DataFrame(summary)
 
 

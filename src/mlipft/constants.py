@@ -54,6 +54,10 @@ SERIES = (
     {"id": "ftK_416_200", "potential": "MACE fine-tuned (2x2x2 labels)", "model": "ftK", "composition": "Li6PS5Cl",
      "cl_content": 1.0, "n_atoms": 416, "production_ps": 200, "part": "C", "folder": "traj_ft27k", "prefix": "mace",
      "published": None, "label": "Fine-tuned on 2x2x2 labels, 416 atoms, 200 ps"},
+    {"id": "ftK2_416_200", "potential": "MACE fine-tuned (2x2x2 labels, stage two)", "model": "ftK2",
+     "composition": "Li6PS5Cl", "cl_content": 1.0, "n_atoms": 416, "production_ps": 200, "part": "C",
+     "folder": "traj_ft27k_s2", "prefix": "mace", "published": None,
+     "label": "Fine-tuned on 2x2x2 labels (stage two), 416 atoms, 200 ps"},
     {"id": "clx000_416_150", "potential": "MACE-MP-0", "model": "foundation", "composition": "Li6PS5Cl",
      "cl_content": 1.0, "n_atoms": 416, "production_ps": 150, "part": "D", "folder": "traj_dope_cl100",
      "prefix": "mace", "published": ("metrics_dope_cl100.json", "mace"), "label": "Li6PS5Cl (x = 0), 150 ps"},
@@ -72,7 +76,7 @@ SERIES = (
 )
 SERIES_BY_ID = {series["id"]: series for series in SERIES}
 # Production runs (416 atoms, 200 ps) get truncation windows, block estimates and kinisi start sensitivity.
-PRODUCTION_SERIES = ("mace_416_200", "mattersim_416_200", "ftG_416_200", "ftK_416_200")
+PRODUCTION_SERIES = ("mace_416_200", "mattersim_416_200", "ftG_416_200", "ftK_416_200", "ftK2_416_200")
 WINDOW_PS = (50, 100, 150, 200)
 BLOCK_PS = 50
 START_FRACTIONS = (0.1, 0.2, 0.3, 0.4, 0.5)
@@ -84,5 +88,5 @@ def run_id(series_id: str, temperature: int) -> str:
 
 
 def runs():
-    """(run_id, series, temperature) for all 42 runs, in catalogue order."""
+    """(run_id, series, temperature) for all 45 runs, in catalogue order."""
     return [(run_id(series["id"], t), series, t) for series in SERIES for t in TEMPERATURES]

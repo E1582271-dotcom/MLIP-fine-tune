@@ -63,7 +63,8 @@ def _load() -> dict:
 
 def _production() -> dict[str, str]:
     """Run family -> its 416-atom, 200-ps production series (constants.PRODUCTION_SERIES)."""
-    out = {C.SERIES_BY_ID[series]["model"]: series for series in C.PRODUCTION_SERIES}
+    out = {C.SERIES_BY_ID[series]["model"]: series for series in C.PRODUCTION_SERIES
+           if C.SERIES_BY_ID[series]["model"] in FAMILIES}
     if set(out) != set(FAMILIES):
         raise ValueError(f"expected one production series per family {FAMILIES}, got {sorted(out)}")
     return {family: out[family] for family in FAMILIES}

@@ -60,7 +60,9 @@ def _load() -> dict:
     blocks = pd.DataFrame({"mean_P_GPa": pressure.mean(), "block_sd_P_GPa": pressure.std(ddof=1),
                            "n_blocks": pressure.size()})
     blocks["block_sem_P_GPa"] = blocks["block_sd_P_GPa"] / np.sqrt(blocks["n_blocks"])
-    return {"comparison": common.read(COMPARISON), "ratios": common.read(RATIOS), "cross": common.read(CROSS),
+    ratios = common.read(RATIOS)
+    ratios = ratios[ratios["reference"] == "foundation"].reset_index(drop=True)  # D ratios to the foundation
+    return {"comparison": common.read(COMPARISON), "ratios": ratios, "cross": common.read(CROSS),
             "cross_configs": common.read(CROSS_CONFIGS), "thermostat": common.read(THERMOSTAT), "blocks": blocks,
             "configs": common.read(CONFIGS)}
 

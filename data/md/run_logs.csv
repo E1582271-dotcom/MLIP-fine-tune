@@ -18,3 +18,6 @@ md_runs_dope_cl175.json,traj_dope_cl175/mace_600K.traj,mace,600,150000,1,150,50,
 md_runs_mace_baseline.json,traj/mace_600K.traj,mace,600,50000,1,50,50,1001,607.9,77.9,-4.068,0.092,1778.3
 md_runs_mace_baseline.json,traj/mace_800K.traj,mace,800,50000,1,50,50,1001,798.2,88.4,-4.0394,0.134,1741.3
 md_runs_mace_baseline.json,traj/mace_1000K.traj,mace,1000,50000,1,50,50,1001,1021.4,108.1,-4.0072,-0.076,1743.4
+md_runs_ft27k_s2.json,traj_ft27k_s2/mace_600K.traj,mace,600,200000,1,200,50,4001,597.9,23.9,-269.1238,0.007,6514.3
+md_runs_ft27k_s2.json,traj_ft27k_s2/mace_800K.traj,mace,800,200000,1,200,50,4001,802,31,-269.092,0.002,6557.7
+md_runs_ft27k_s2.json,traj_ft27k_s2/mace_1000K.traj,mace,1000,200000,1,200,50,4001,997.2,41.3,-269.0622,-0.001,6566.9

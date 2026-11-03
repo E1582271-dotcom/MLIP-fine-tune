@@ -506,7 +506,7 @@ def _runs(reproduction: pd.DataFrame, thermostat: pd.DataFrame) -> pd.DataFrame:
     classes = reproduction.set_index("run_id")
     logs = thermostat.set_index("run_id")["run_log"].fillna("").astype(str)
     rows = []
-    for series in SERIES:
+    for series in [s for s in SERIES if s["id"] not in common.PENDING_SERIES]:
         for temperature in TEMPERATURES:
             rid = run_id(series["id"], temperature)
             published = rid in classes.index

@@ -64,15 +64,15 @@ Differences in units of the published 1-sigma uncertainty.
 | clx075_392_150 | R2 | 213 | 213 | 0.003 | 0.1484 | 0.1484 | 0.000 |
 
 
-Quoted values: mace_52_050 (published), mattersim_52_050 (published), mace_52_100 (reanalysis), mattersim_52_100 (reanalysis), mace_52_150 (published), mattersim_52_150 (published), mace_416_200 (published), mattersim_416_200 (published), ftG_416_200 (published), ftK_416_200 (reanalysis), clx000_416_150 (published), clx025_408_150 (published), clx050_400_150 (published), clx075_392_150 (published).
+Quoted values: mace_52_050 (published), mattersim_52_050 (published), mace_52_100 (reanalysis), mattersim_52_100 (reanalysis), mace_52_150 (published), mattersim_52_150 (published), mace_416_200 (published), mattersim_416_200 (published), ftG_416_200 (published), ftK_416_200 (reanalysis), ftK2_416_200 (reanalysis), clx000_416_150 (published), clx025_408_150 (published), clx050_400_150 (published), clx075_392_150 (published).
 
 
 ## Thermostat statistics against the July run logs
 
-19 of 42 runs have a July run log. 
-The mean temperature agrees in 19 of 19. 
-The mean energy agrees in 19 of 19. 
-The drift agrees in 15 of 19; it does not in mace_52_050_800K, mace_52_050_1000K, mattersim_52_050_800K, mattersim_52_050_1000K. 
+22 of 45 runs have a July run log. 
+The mean temperature agrees in 22 of 22. 
+The mean energy agrees in 22 of 22. 
+The drift agrees in 18 of 22; it does not in mace_52_050_800K, mace_52_050_1000K, mattersim_52_050_800K, mattersim_52_050_1000K. 
 These differ from the logged drift by at most 0.0015 meV/atom/ps. The logged fit also includes the production starting frame, which the trajectory does not store; in a 52-atom run the potential energy scatters by about 10 meV/atom from frame to frame, so this one end point moves the 50-ps slope by about 1e-3 meV/atom/ps. The check is reported as failed, as the rule states.
 
 
