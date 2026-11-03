@@ -2,8 +2,9 @@
 ``data/sanitisation.csv``: every committed file that is a sanitised copy of a raw file.
 
 The raw backup holds the July files copied from the cluster (checked against sha256 sums computed
-there) plus the foundation model from the local MACE cache. Nothing in the manifest is a path
-outside the backup.
+there), the foundation model from the local MACE cache and the outputs of the stage-two 2x2x2 MD
+run of amendment A5 (November 2026, same layout). Nothing in the manifest is a path outside the
+backup.
 """
 from __future__ import annotations
 
@@ -15,7 +16,9 @@ from pathlib import Path
 
 from .. import io, paths
 
-ROLES = (("data/traj", "MD trajectory"), ("data/md_runs", "MD run log"), ("data/", "structure or July record"),
+A5_TRAJECTORIES = "data/traj_ft27k_s2"  # the run of amendment A5; its job output names this folder
+ROLES = (("data/traj_ft27k_s2/", "MD trajectory (amendment A5)"), ("data/md_runs_ft27k_s2", "MD run log (amendment A5)"),
+         ("data/traj", "MD trajectory"), ("data/md_runs", "MD run log"), ("data/", "structure or July record"),
          ("finetune/qe_work", "QE input or output"), ("finetune/data", "DFT labels or snapshots"),
          ("finetune/models", "MACE model"), ("finetune/checkpoints", "MACE checkpoint"),
          ("finetune/logs", "MACE training log"), ("finetune/results", "MACE training record"),
@@ -28,12 +31,17 @@ def role(path: str) -> str:
     return next(name for prefix, name in ROLES if path.startswith(prefix))
 
 
+def job_role(path: Path) -> str:
+    a5 = A5_TRAJECTORIES in path.read_text(encoding="utf-8", errors="replace")
+    return "batch job output (amendment A5)" if a5 else "July batch job output"
+
+
 def build(raw: Path | None = None) -> list[Path]:
     raw = Path(raw or paths.raw())
     rows = []
     for path in sorted(p for p in raw.rglob("*") if p.is_file() and p.name != ".DS_Store"):
         rel = path.relative_to(raw).as_posix()
-        kind = "July batch job output" if JOB_OUTPUT.search(rel) else role(rel)
+        kind = job_role(path) if JOB_OUTPUT.search(rel) else role(rel)
         rows.append({"path": JOB_OUTPUT.sub(".o<job>", rel), "role": kind, "bytes": path.stat().st_size,
                      "sha256": io.sha256_file(path)})
     written = [io.write_csv(paths.RAW_MANIFEST, ("path", "role", "bytes", "sha256"), rows)]

@@ -21,6 +21,7 @@ data/md_runs_dope_cl125.json,MD run log,558,258b1411150318a17f6315fe642a04acb6e7
 data/md_runs_dope_cl150.json,MD run log,559,c905aa09041665cbf24884fd110b04215f624bc9d90cea2ca974242bfd6da26a
 data/md_runs_dope_cl175.json,MD run log,557,de1562c214def16ea49e2a88de101f85c9d96ec4cb0dc4c1c2f07f0c1eb5cd38
 data/md_runs_ft27k.json,MD run log,551,14795478fc3d3af75768332857b2482c1132ad900319575ddff34b3b2d680a47
+data/md_runs_ft27k_s2.json,MD run log (amendment A5),1542,4da42bdad85d963fadb84d63bc8b72b87087fe6bdcda2181393f1bea6325d5ed
 data/md_runs_long.json,MD run log,1409,208e2f31c115fb61bbc0296d471627403133239a4d5059271fd45c0efe4af53b
 data/md_runs_mace_baseline.json,MD run log,1388,f525f7e845bfcddde80ae44ab5fc94d2e91d0ed2134c34c4a6a18737396ddef2
 data/md_runs_prod.json,MD run log,508,04578387855db395dfb63546c2c86ab9889c310fb71647e43d8f5e4c97b3227e
@@ -56,6 +57,9 @@ data/traj_ft/mace_800K.traj,MD trajectory,148579213,fdcbe718be3dcf492c88e017a9ef
 data/traj_ft27k/mace_1000K.traj,MD trajectory,148581167,41eee4642f42ee33329dbf17a461b44a4e7c7f9671d02390cc87c520d1b53755
 data/traj_ft27k/mace_600K.traj,MD trajectory,148579054,c9ca3f2a0bc93df6a1dd5789f19e879eb16f3fbaa97dea1b347155071677bc09
 data/traj_ft27k/mace_800K.traj,MD trajectory,148579521,8ed31fc1fc79c9a7cfb0353f923f61186bb02fd5323ffa81e4514a995ee9b97d
+data/traj_ft27k_s2/mace_1000K.traj,MD trajectory (amendment A5),148581036,6e2b749040a3aec43c81b465d4063b93133eb30cebe8164e3db1599dc00356b9
+data/traj_ft27k_s2/mace_600K.traj,MD trajectory (amendment A5),148579111,6a4a7ffe0300de397cea44e6a085223b725d88b113d652fb5b5650ba5380699d
+data/traj_ft27k_s2/mace_800K.traj,MD trajectory (amendment A5),148579113,f825efb311b199173c87c469a0dc6e1227257ec8299ddc37e52dfeb88ee1e163
 data/traj_long/mace_1000K.traj,MD trajectory,16142840,f23eb3ad114bde4b6db5fdf5001d29bc00aa8ecde2783cbd3626846e81d61660
 data/traj_long/mace_600K.traj,MD trajectory,16140113,e5b5536008aa848adf20c8afee343513b427bc5cad89332d91d55e6a17e3f802
 data/traj_long/mace_800K.traj,MD trajectory,16141314,793b0c012ab38c1dad7fbf422acc9dd3a11a1addfba66771469e55b8f6b4cca5
@@ -325,6 +329,7 @@ li6_md.o<job>,July batch job output,4594,d0dc915ab67663193dcf8b051806e38b9e0e4f3
 li6_md.o<job>,July batch job output,4600,b21241fa1f2e23fea2cea0a19c8ec7673834a439eb3f17abafcd8b6e2ab210c1
 li6_md.o<job>,July batch job output,5112,0dd7bdc60bf08ed88b95546f0c023c039fec628fbb87fc89a28249bf608d911a
 li6_md.o<job>,July batch job output,3892,64bfd7e6fd27812a7314cd54ed8c2fb907e30ece155d4ac2f682eea24ca5c6cd
+li6_md.o<job>,batch job output (amendment A5),4915,bdd96e6d89495d314f8230eff4e90a70a9fbd21b4f09d3466e53b1d590e89d64
 li6_msbase.o<job>,July batch job output,3635,cfcbe5201eb0af5ea02c130b1431687ab9767ec9eb3d40bcaaa0ba4c3b1f4f74
 li6_p1000.o<job>,July batch job output,4808,21984643c5adedb8dcd3c48035e61acd4c4bdc2efd4e3953545529003726fb1f
 li6_p600.o<job>,July batch job output,4802,85ba80526fc77d5668cde8b0bb05ce06a85cfb1dcbfcdd9708d35933899df7a7

@@ -65,7 +65,8 @@ def test_models_registry_and_log_reproduction():
 def test_fingerprints_assign_every_md_run():
     prints = _csv(paths.MODELS / "fingerprints.csv")
     assigned = prints.groupby("series")["assigned_model"].unique().apply(list).to_dict()
-    assert assigned == {"ftG_416_200": ["ftG_s2"], "ftK_416_200": ["ftK_s1"], "mace_416_200": ["foundation"]}
+    assert assigned == {"ftG_416_200": ["ftG_s2"], "ftK_416_200": ["ftK_s1"], "ftK2_416_200": ["ftK_s2"],
+                        "mace_416_200": ["foundation"]}
 
 
 def test_predictions_carry_the_dft_labels():

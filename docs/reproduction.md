@@ -102,6 +102,9 @@ Forces stored in the MD trajectories against the forces of each candidate model 
 | ftK_416_200 | 600 | ftK_s1 | 6.5e-4 |
 | ftK_416_200 | 800 | ftK_s1 | 7.5e-4 |
 | ftK_416_200 | 1000 | ftK_s1 | 7.1e-4 |
+| ftK2_416_200 | 600 | ftK_s2 | 6.4e-4 |
+| ftK2_416_200 | 800 | ftK_s2 | 6.2e-4 |
+| ftK2_416_200 | 1000 | ftK_s2 | 6.7e-4 |
 | mace_416_200 | 600 | foundation | 5.6e-4 |
 | mace_416_200 | 800 | foundation | 5.8e-4 |
 | mace_416_200 | 1000 | foundation | 6.1e-4 |

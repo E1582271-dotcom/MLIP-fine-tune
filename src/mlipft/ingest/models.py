@@ -45,7 +45,7 @@ LOGS = {"ftG": ("finetune/logs/li6ps5cl_ft_run-0.log", "finetune/results/li6ps5c
         "ftK": ("finetune/logs/li6ps5cl_ft27k_run-0.log", "finetune/results/li6ps5cl_ft27k_run-0_train.txt")}
 OWN_LABELS = {"ftG": "gamma", "ftK": "k222"}
 FINGERPRINT_RUNS = (("ftG_416_200", "data/traj_ft"), ("ftK_416_200", "data/traj_ft27k"),
-                    ("mace_416_200", "data/traj_prod"))
+                    ("ftK2_416_200", "data/traj_ft27k_s2"), ("mace_416_200", "data/traj_prod"))
 FINGERPRINT_MATCH_meV_A = 1.0
 FINGERPRINT_RATIO = 10.0
 IDENTICAL_eV = 1e-8

@@ -289,9 +289,10 @@ def make() -> list[Path]:
 
 def _caption() -> str:
     fingerprints, cross, cross_configs, floor, decomposition, configs = _load()
+    fingerprints = fingerprints[fingerprints["series"].isin(SERIES_ORDER)]  # the runs panel a draws
     models = list(common.MODEL_ORDER)
     md = common.md_models(cross)
-    residual = fingerprints[[f"rms_{m}_meV_A" for m in models]].to_numpy()
+    residual =fingerprints[[f"rms_{m}_meV_A" for m in models]].to_numpy()
     best = residual.min(axis=1)
     others = np.sort(residual, axis=1)[:, 1]
     assigned = fingerprints.groupby("series")["assigned_model"].agg(lambda s: ", ".join(sorted(set(s))))
