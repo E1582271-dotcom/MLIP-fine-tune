@@ -1,7 +1,19 @@
 # Changelog
 
-## Unreleased
+## 1.1.0 (2026-11-03)
 
+- MatterSim evaluated against both DFT label sets with the Part B measures (amendment A4), after
+  checking that the local model reproduces the forces stored in the July MatterSim runs. It enters
+  Fig. 2 and the softening panel of Fig. 3.
+- A new MD series, the stage-two 2x2x2 fine-tune at 600, 800 and 1000 K with the July settings
+  (amendment A5, committed before the runs), removes the training-stage confound of Part C. Its
+  force fingerprint, thermostat check and re-analysis follow the July runs; data/md now holds 45
+  runs. At equal training stage the sigma(300 K) of the two fine-tunes differ by less than their
+  1-sigma fit uncertainty (f2 = -0.20, ln(sigma_2x2x2/sigma_Gamma) = -0.51 +/- 0.54, read as
+  "indistinguishable"); the training stage at equal labels changes D by factors of 0.81-1.11. The
+  pre-registered reading with the stage-one run (f = -0.22, "not explained") stays reported.
+- The main figures show the stage-two fine-tunes only; the stage-one models and the July 2x2x2 run
+  appear in Extended Data, the run inventory of Fig. 1 and the stage comparison of Fig. 4.
 - Figures restructured into four main figures (study design; forces against DFT; Li diffusion against
   AIMD; what fine-tuning changes) and nine Extended Data figures; measured conductivities appear only
   in Extended Data Figs. 8 and 9, as context.
