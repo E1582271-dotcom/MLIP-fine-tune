@@ -6,9 +6,9 @@ standard deviation, relative difference against each run's threshold max(3 s_see
 Arrhenius fits: differences in ln sigma(300 K) and Ea in units of the published uncertainty, with the
 R2 (0.1) and R2- (1) limits; e, training logs: logged minus re-evaluated force RMSE of the fine-tuned
 models and of the foundation model, on the validation and the training set, against the printed
-precision; f, thermostat statistics recomputed from the trajectories against the surviving July run
-logs, in units of the tolerance of the rule; g, the Monte-Carlo scatter s_seed of kinisi D over seeds
-1-10 against the width of its posterior, for all 42 runs.
+precision; f, thermostat statistics recomputed from the trajectories against the run logs (the surviving
+July logs and those of amendment A5), in units of the tolerance of the rule; g, the Monte-Carlo scatter
+s_seed of kinisi D over seeds 1-10 against the width of its posterior, for all 45 runs.
 
 Encoding: in a-d and f, colour is the temperature (a-c, f) or the quantity (d); marker shape the run
 type (``style.RUN_MARKERS``); fill the training stage. In e and g, colour is the model.
@@ -40,6 +40,7 @@ LOGS = paths.MODELS / "log_reproduction.csv"
 CONFIGS = paths.DFT / "configs.csv"
 TRANSPORT = paths.MD / "transport.csv"
 SEEDS = paths.MD / "kinisi_seeds.csv"
+CROSS = paths.RESULTS / "cross_evaluation.csv"
 RULE = paths.PROTOCOL / "reproduction_rule.md"
 AMENDMENTS = paths.PROTOCOL / "amendments.md"
 
@@ -55,7 +56,9 @@ PART_TEXT = {"A": "Universal potentials", "C": "Fine-tuned", "D": "Cl excess, MA
 KIND_LABELS = {"cell_52": "52 atoms", "production": "416 atoms, 200 ps", "clexcess": "Cl excess, 392-416 atoms"}
 QUANTITY_COLORS = {"sigma": style.BLACK, "Ea": style.GRAY}  # the two fit quantities of d
 MARKER = 3.0  # marker diameter (pt) of a run in a-d and f
-FAMILY_MODELS = {"foundation": "foundation", "mattersim": "mattersim", "ftG": "ftG", "ftK": "ftK"}
+G_MODELS = ("foundation", "mattersim", "ftG", "ftK", "ftK2")  # g: run families, in legend order
+A5_SERIES = tuple(s["id"] for s in SERIES if s["model"] == "ftK2")  # amendment A5: its run log is not a July log
+MD_MODELS = common.md_models(common.read(CROSS))  # run family -> model that drove it (ftK2 -> ftK_s2)
 
 # Layout (mm from the top-left corner)
 LEFT, STRIP_WIDTH = 20.0, 161.0
@@ -78,7 +81,6 @@ def _load():
     runs = common.read(RUNS)
     fits = common.read(FITS)
     thermostat = common.read(THERMOSTAT)
-    thermostat = thermostat[~thermostat["series"].isin(common.PENDING_SERIES)].reset_index(drop=True)
     logs = common.read(LOGS)
     configs = common.read(CONFIGS)
     return runs, fits, thermostat, logs, configs
@@ -164,10 +166,10 @@ def _frame_runs(ax, series: list[dict], labels: bool) -> None:
 
 
 def _model_name(family: str) -> str:
-    """Name of the model that drove a run family: MACE-MP-0, MatterSim, 'Gamma, stage 2', '2x2x2, stage 1'."""
+    """Name of the model that drove a run family: MACE-MP-0, MatterSim, 'Gamma, stage 2', '2x2x2, stage 1', ..."""
     if family in style.UNIVERSAL_MODELS:
         return style.MODEL_LABELS[family]
-    return common.SHORT_LABELS[f"{family}_{style.MD_STAGE[family]}"]
+    return common.SHORT_LABELS[MD_MODELS[family]]
 
 
 def _short(series: dict) -> str:
@@ -423,7 +425,6 @@ def _seed_scatter(seeds: pd.DataFrame) -> pd.DataFrame:
 
 def _seed_table() -> pd.DataFrame:
     transport = common.read(TRANSPORT)
-    transport = transport[~transport["series"].isin(common.PENDING_SERIES)]
     seeds = common.read(SEEDS)
     scatter = _seed_scatter(seeds).merge(transport[["run_id", "series", "temperature_K", "kinisi_D_cm2_s",
                                                     "kinisi_D_std_cm2_s", "seed_scatter_D_rel"]], on="run_id")
@@ -436,13 +437,13 @@ def _seed_table() -> pd.DataFrame:
 def _panel_g(axes) -> Path:
     """s_seed against the posterior width, one axes per run type, one artist per model in each."""
     scatter = _seed_table()
-    scatter["model"] = scatter["series"].map(lambda s: FAMILY_MODELS[SERIES_BY_ID[s]["model"]])
+    scatter["model"] = scatter["series"].map(lambda s: SERIES_BY_ID[s]["model"])
     scatter["run_type"] = scatter["series"].map(_kind)
     crossover = rule.KINISI_D_FLOOR / rule.KINISI_SEED_FACTOR * 100.0
     for index, (ax, (kind, title, xlim, xticks, ylim, yticks)) in enumerate(zip(axes, G_PANELS)):
         ax.axhline(crossover, color=style.BLACK, lw=0.6, ls=(0, (3, 2)), zorder=1)
         part = scatter[scatter["run_type"] == kind]
-        for model in ("foundation", "mattersim", "ftG", "ftK"):
+        for model in G_MODELS:
             runs = part[part["model"] == model]
             if len(runs):
                 ax.plot(runs["posterior_rel"] * 100.0, runs["s_seed"] * 100.0,
@@ -462,7 +463,7 @@ def _panel_g(axes) -> Path:
                     f"{100 * rule.KINISI_D_FLOOR:g} %", transform=ax.get_yaxis_transform(), ha="left",
                     va="bottom", fontsize=style.SMALL)
     handles = [common.handle(common.model_style(model, size=G_MARKER), _model_name(model))
-               for model in ("foundation", "mattersim", "ftG", "ftK")]
+               for model in G_MODELS]
     axes[1].legend(handles=handles, loc="lower right", fontsize=style.SMALL, handlelength=1.0, handletextpad=0.3,
                    labelspacing=0.3, borderaxespad=0.4)
     rows = [{"run_id": row.run_id, "series": row.series, "model": row.model, "run_type": row.run_type,
@@ -509,7 +510,7 @@ def make() -> list[Path]:
     L.letter(ax_e[0], "e", 4.0, title_top)
     L.letter(ax_f, "f", F_LEFT - 13.0, title_top)
     L.text(7.0, title_top - 0.4, "Force RMSE in the MACE training logs", ha="left", va="bottom")
-    L.text(F_LEFT - 10.0, title_top - 0.4, "Thermostat statistics against the July run logs", ha="left",
+    L.text(F_LEFT - 10.0, title_top - 0.4, "Thermostat statistics against the run logs", ha="left",
            va="bottom")
     g_title = G_TOP - 7.5
     L.letter(ax_g[0], "g", 4.0, g_title)
@@ -560,7 +561,9 @@ def _caption() -> str:
     reason = (f" are all from 52-atom, {short.pop()}-ps runs, where the logged fit also includes the starting frame "
               "that the trajectory does not store" if (failed["n_atoms"] == 52).all() and len(short) == 1 else "")
     labels = {s["id"]: s["label"].replace("Fine-tuned", "fine-tuned") for s in SERIES}  # used mid-sentence
-    n_new_logs = int((~checked["series"].isin(set(runs["series"]))).sum())
+    a5_logs = checked["series"].isin(A5_SERIES)
+    n_july_logs = int((~a5_logs).sum())
+    n_new_logs = int((~a5_logs & ~checked["series"].isin(set(runs["series"]))).sum())  # July, never analysed
     scatter = _seed_table()
     crossover = rule.KINISI_D_FLOOR / rule.KINISI_SEED_FACTOR
     above = scatter[scatter["s_seed"] > crossover]
@@ -578,8 +581,9 @@ def _caption() -> str:
         f"{len(runs)} published runs of {len(series)} series (x axis of a-d: series in the order of "
         + registry.label("design", "c") + ", three runs each at 600, 800 and 1000 K). In a-d, f and g, marker "
         "shape is the run type (triangles, 52-atom cells; circles, the 416-atom, 200-ps production runs; inverted "
-        "triangles, the 392-416-atom Cl-excess runs of 150 ps) and open markers (f, g) are the runs of the 2x2x2-label "
-        "fine-tune (stage 1; every other model is filled); in a-c and f colour is the temperature. "
+        "triangles, the 392-416-atom Cl-excess runs of 150 ps) and open markers (f, g) are the July runs of the "
+        "2x2x2-label fine-tune, whose MD used its stage-1 model (every other run is filled, including the runs of "
+        "its stage-2 model, protocol amendment A5); in a-c and f colour is the temperature. "
         f"**a**, Relative difference between the re-analysed and the published pymatgen D of each run (n = "
         f"{len(runs)}; one value per run, no error bars). In {n_zero} runs the two are bit-identical (drawn on the "
         f"'identical' row, at {common.sci(ZERO_FLOOR, 1)}); the others differ by "
@@ -616,8 +620,9 @@ def _caption() -> str:
         f"and {train_diff[1]:+.2f} meV/A, and "
         f"{matching[0]} (stage 1) and {matching[1]} (stage 2) of the {matching[2]} subsets of "
         f"{int(ftg_s1['train_evaluated_by_log'])} configurations reproduce the logged values exactly. "
-        f"**f**, Thermostat statistics recomputed from the trajectory against the n = {len(checked)} surviving "
-        f"July run logs ({n_new_logs} of them belong to runs never analysed in July; per run in "
+        f"**f**, Thermostat statistics recomputed from the trajectory against the n = {len(checked)} run logs "
+        f"(the {n_july_logs} July logs that survive, {n_new_logs} of them from runs never analysed in July, and the "
+        f"{len(checked) - n_july_logs} of amendment A5; per run in "
         + registry.label("stability", "e") + "): absolute difference in units of the "
         f"tolerance of the rule ({rule.THERMOSTAT_T_TOLERANCE_K[416]:g} K for 392-416 atoms and "
         f"{rule.THERMOSTAT_T_TOLERANCE_K[52]:g} K for 52 atoms for the mean temperature; one unit of the logged "
@@ -638,7 +643,7 @@ def _caption() -> str:
         f"which is the case in {len(above)} of {len(scatter)} runs ({above_text}). s_seed is "
         f"{100 * scatter['s_seed'].min():.2f}-{100 * scatter['s_seed'].max():.2f} %, "
         f"{share.min():.3f}-{share.max():.3f} times the posterior width. "
-        + common.sources([RUNS, FITS, THERMOSTAT, LOGS, CONFIGS, TRANSPORT, SEEDS, RULE, AMENDMENTS])
+        + common.sources([RUNS, FITS, THERMOSTAT, LOGS, CONFIGS, TRANSPORT, SEEDS, CROSS, RULE, AMENDMENTS])
     )
 
 

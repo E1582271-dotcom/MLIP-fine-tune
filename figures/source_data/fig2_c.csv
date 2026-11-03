@@ -1,17 +1,21 @@
-element,series,x,force_rmse_meV_A
-Li,label floor (Gamma vs 2x2x2),0,8.04737
-Li,foundation,-0.24,132.317
-Li,ftG_s2,0,36.0051
-Li,ftK_s1,0.24,45.4941
-P,label floor (Gamma vs 2x2x2),1,19.277
-P,foundation,0.76,480.407
-P,ftG_s2,1,117.467
-P,ftK_s1,1.24,148.201
-S,label floor (Gamma vs 2x2x2),2,22.4539
-S,foundation,1.76,230.825
-S,ftG_s2,2,67.5681
-S,ftK_s1,2.24,75.8412
-Cl,label floor (Gamma vs 2x2x2),3,13.5361
-Cl,foundation,2.76,74.8665
-Cl,ftG_s2,3,35.9719
-Cl,ftK_s1,3.24,34.0996
+element,series,md_model,x,force_rmse_meV_A
+Li,label floor (Gamma vs 2x2x2),,0,8.04737
+Li,foundation,foundation,-0.3,132.317
+Li,mattersim,mattersim,-0.1,59.1995
+Li,ftG,ftG_s2,0.1,36.0051
+Li,ftK2,ftK_s2,0.3,35.2057
+P,label floor (Gamma vs 2x2x2),,1,19.277
+P,foundation,foundation,0.7,480.407
+P,mattersim,mattersim,0.9,175.974
+P,ftG,ftG_s2,1.1,117.467
+P,ftK2,ftK_s2,1.3,118.397
+S,label floor (Gamma vs 2x2x2),,2,22.4539
+S,foundation,foundation,1.7,230.825
+S,mattersim,mattersim,1.9,120.813
+S,ftG,ftG_s2,2.1,67.5681
+S,ftK2,ftK_s2,2.3,62.686
+Cl,label floor (Gamma vs 2x2x2),,3,13.5361
+Cl,foundation,foundation,2.7,74.8665
+Cl,mattersim,mattersim,2.9,70.6701
+Cl,ftG,ftG_s2,3.1,35.9719
+Cl,ftK2,ftK_s2,3.3,35.7428

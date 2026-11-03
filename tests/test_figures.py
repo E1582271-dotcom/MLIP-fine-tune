@@ -127,11 +127,14 @@ def test_md_models_agree_with_the_encoding():
     cross = common.read(paths.RESULTS / "cross_evaluation.csv")
     md = common.md_models(cross)
     assert md["foundation"] == "foundation"
-    for family in ("ftG", "ftK"):
-        assert md[family] == f"{family}_{style.MD_STAGE[family]}"
+    for family in ("ftG", "ftK", "ftK2"):
+        assert md[family] == f"{family[:3]}_{style.MD_STAGE[family]}"
         assert style.MODEL_COLORS[family] == style.MODEL_COLORS[md[family]]
         assert common.filled(family) == common.filled(md[family])
-    assert common.primary_models(cross) == ["foundation", md["ftG"], md["ftK"]]
+    assert common.primary_models(cross) == ["foundation", md["ftG"], md["ftK2"], md["ftK"]]
+    assert common.main_models(cross) == {"foundation": "foundation", "mattersim": "mattersim", "ftG": md["ftG"],
+                                         "ftK2": md["ftK2"]}
+    assert all(common.filled(model) for model in common.main_models(cross).values())  # main figures: stage two
 
 
 def test_encoding_helpers():

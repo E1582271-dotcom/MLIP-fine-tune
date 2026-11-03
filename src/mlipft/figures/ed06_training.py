@@ -25,7 +25,10 @@ RECORDS = {"ftG": paths.MODELS / "training" / "ftG_record.jsonl", "ftK": paths.M
 EVALUATION = paths.MODELS / "evaluation.json"
 REPRODUCTION = paths.MODELS / "log_reproduction.csv"
 CONFIGS = paths.DFT / "configs.csv"
+CROSS = paths.RESULTS / "cross_evaluation.csv"  # drove_md: which selected model drove which MD run
 LABELS = {"ftG": "gamma", "ftK": "k222"}
+MD_RUNS = {"ftG": "the Gamma fine-tune run", "ftK": "the July 2x2x2 fine-tune run",
+           "ftK2": "the 2x2x2 fine-tune run of protocol amendment A5"}  # fine-tuned run families (common.RUN_FAMILIES)
 START_X = -9.0  # where the error before training (epoch null in the record) is drawn
 START_SIZE = 3.2  # marker of MACE-MP-0 before fine-tuning
 SELECTED_SIZE = 3.6  # markers of the selected models
@@ -210,6 +213,8 @@ def _caption() -> str:
             raise ValueError(f"the two fine-tunes differ in {key}")
     max_valid_diff = float(np.max(np.abs(reproduction["logged_valid_rmse_f_meV_A"]
                                          - reproduction["reevaluated_valid_rmse_f_meV_A"])))
+    md = common.md_models(common.read(CROSS))  # run family -> the model that drove its MD run
+    no_md = [f"{run}_{stage}" for run in RECORDS for stage in sel[run] if f"{run}_{stage}" not in md.values()]
     return (
         registry.heading(KEY) + "Both start from MACE-MP-0 small with the "
         f"same settings (batch size {g['batch_size']}; stage one with energy and force loss weights "
@@ -244,10 +249,13 @@ def _caption() -> str:
         f"subsets of {int(partial['train_evaluated_by_log'])} configurations reproduce the logged stage-one and "
         f"stage-two values. The 2x2x2 fine-tune has {k['n_train']} training "
         f"configurations, a multiple of the batch size, and its logged training errors cover all of them. "
-        + common.naming_sentence(configs) + " The two models that drove MD differ in stage ("
-        + "; ".join(common.SHORT_LABELS[f"{run}_{style.MD_STAGE[run]}"] for run in RECORDS)
-        + f"); the effect of the stage on the force error is shown in {registry.label('finetune')}. "
-        + common.sources([RECORDS["ftG"], RECORDS["ftK"], EVALUATION, REPRODUCTION, CONFIGS])
+        + common.naming_sentence(configs) + " Selected models that drove MD runs (identified by force "
+        f"fingerprints, {registry.label('models', 'a')}): "
+        + "; ".join(f"{common.SHORT_LABELS[md[family]]} ({MD_RUNS[family]})" for family in MD_RUNS)
+        + f". {' and '.join(common.SHORT_LABELS[m] for m in no_md)} drove no MD run. The force errors of both "
+        f"stages are in {registry.label('models', 'b')}, and the effect of the stage on Li diffusion at equal "
+        f"labels in {registry.label('finetune', 'c')}. "
+        + common.sources([RECORDS["ftG"], RECORDS["ftK"], EVALUATION, REPRODUCTION, CONFIGS, CROSS])
     )
 
 

@@ -2,12 +2,13 @@
 
 a, the 52-atom Li6PS5Cl cell (config0) in an oblique projection, with the P-S bonds of its four PS4
 tetrahedra and the cell edges; its ordered S/Cl arrangement (Cl on 4a, S on 4c) is the one simulated by
-the AIMD reference. b, the study design (protocol amendment A3): every model is compared with DFT. Grey
+the AIMD reference. b, the study design (protocol amendments A3-A5): every model is compared with DFT. Grey
 boxes are inputs and simulations; the outlined boxes with a figure badge are the comparisons: forces and
-energies against the DFT labels; Li D of the 416-atom runs of all four models against AIMD of the same
+energies of all four models against the DFT labels; Li D of their 416-atom runs against AIMD of the same
 ordered cell (Deng et al. 2017; the 52-atom runs in the sampling figure); fine-tuned MD against foundation
-MD with the reading fixed in advance. c, the 42 MD runs: published in July 2026 and reproduced here, or analysed here for the first
-time, and whether the July run log survives.
+MD with readings fixed in advance, the labels at equal training stage (amendment A5) and the training stage
+at equal labels. c, the 45 MD runs: published in July 2026 and reproduced here, run in July and analysed here
+for the first time, or run here under amendment A5, and whether a run log exists.
 """
 from __future__ import annotations
 
@@ -30,7 +31,7 @@ from . import common, registry, style
 KEY = "design"
 NAME = registry.number(KEY)
 PANELS = "abc"
-WIDTH, HEIGHT = 183.0, 142.65
+WIDTH, HEIGHT = 183.0, 148.0
 STRUCTURE = paths.STRUCTURES / "config0.cif"
 CONFIGS = paths.DFT / "configs.csv"
 QE_RUNS = paths.DFT / "qe_runs.csv"
@@ -388,9 +389,15 @@ def _stage(model: str) -> str:
     return f"stage {style.MD_STAGE[model][1:]}"
 
 
+def _fine_tuned(main: bool | None = None) -> list[str]:
+    """Fine-tuned run families, those of the main figures (stage two) first; ``main`` keeps only one kind."""
+    families = sorted(style.MD_STAGE, key=lambda model: model not in common.MAIN_FAMILIES)
+    return [model for model in families if main is None or (model in common.MAIN_FAMILIES) == main]
+
+
 def _design_facts() -> dict:
     """Sizes and lengths of the MD series of the design (from the series catalogue)."""
-    fine_tuned = {(sr["n_atoms"], sr["production_ps"]) for sr in SERIES if sr["model"] in ("ftG", "ftK")}
+    fine_tuned = {(sr["n_atoms"], sr["production_ps"]) for sr in SERIES if sr["model"] in style.MD_STAGE}
     if len(fine_tuned) != 1:
         raise ValueError("the fine-tuned series differ in size or length")
     universal = [sr for sr in SERIES if sr["model"] in style.UNIVERSAL_MODELS and sr["cl_content"] == 1.0
@@ -427,7 +434,7 @@ def _panel_b(ax, configs: pd.DataFrame, qe: pd.DataFrame, aimd: pd.DataFrame, wi
     x_elbow = col_ft[0] + 1.6  # connector: fine-tunes -> against DFT labels
     col_ftmd = (x_elbow + 1.8, col_ft[1])
 
-    r1, r2, r3, r4 = (1.0, 14.5), (21.0, 35.5), (42.0, 57.0), (63.5, 76.0)
+    r1, r2, r3, r4 = (1.0, 14.5), (21.0, 35.5), (42.0, 59.5), (66.0, 78.5)
     m1, m2, m3, m4 = [(lo + hi) / 2.0 for lo, hi in (r1, r2, r3, r4)]
     swatch = {"size": SWATCH_PT, "edge": 0.6}
 
@@ -450,22 +457,26 @@ def _panel_b(ax, configs: pd.DataFrame, qe: pd.DataFrame, aimd: pd.DataFrame, wi
                                                             f"{len(frames)} per temperature"])
     s.box(*col_dft, *r2, "DFT labels", [f"QE {qe_version}, PBE", ("Gamma point", style.LABEL_COLORS["gamma"]),
                                         ("2x2x2 k-points", style.LABEL_COLORS["k222"])])
-    s.box(*col_ft, *r2, "Fine-tunes of\nMACE-MP-0", [_label_set(model) for model in style.MD_STAGE])
-    s.box(*col_ftmd, *r3, "Fine-tuned MD", [(f"{_label_set(model)} ({_stage(model)})",
-                                             common.model_style(model, **swatch)) for model in style.MD_STAGE]
+    s.box(*col_ft, *r2, "Fine-tunes of\nMACE-MP-0", list(dict.fromkeys(_label_set(m) for m in _fine_tuned())))
+    # the stage-two runs of the main figures; the stage-one run only in the stage comparison
+    s.box(*col_ftmd, *r3, "Fine-tuned MD",
+          [(_label_set(model), common.model_style(model, **swatch)) for model in _fine_tuned(main=True)]
+          + [f"+ {_label_set(model).split()[0]}, {_stage(model)}: {registry.label('finetune', 'c')}"
+             for model in _fine_tuned(main=False)]
           + [protocol, f"{', '.join(str(t) for t in TEMPERATURES)} K"])
 
     # the three comparisons, each marked with its figure
     s.box(col_cfg[0], col_dft[1], *r3, "Against DFT labels",
-          ["forces and energies", "MACE-MP-0 and both fine-tunes", "held-out configurations"],
+          ["forces and energies", "MACE-MP-0, MatterSim and", "both fine-tunes", "held-out configurations"],
           figure=registry.label("forces"))
     s.box(*col_ref, r3[0], r4[1], "Against\nAIMD",
           [f"Li D at {shared}", "no extrapolation", f"{facts['n_prod']}-atom runs of", "all four models",
            "52-atom runs:", registry.label("sampling", "g", short=True)],
           figure=registry.label("diffusion"), centre=True)
     s.box(col_cfg[0], col_ft[1], *r4, "Fine-tuned against foundation",
-          ["fine-tuned MD against MACE-MP-0 MD", "pre-registered reading"],
-          side=["same MD protocol", f"{protocol}, {shared}"], side_at=36.0, figure=registry.label("finetune"))
+          ["fine-tuned MD against MACE-MP-0 MD", "labels at equal training stage (A5)"],
+          side=["training stage at equal labels", "readings fixed in advance"], side_at=36.0,
+          figure=registry.label("finetune"))
 
     # flow
     x_in = (col_in[0] + col_in[1]) / 2.0
@@ -499,29 +510,39 @@ def _panel_b(ax, configs: pd.DataFrame, qe: pd.DataFrame, aimd: pd.DataFrame, wi
 # ----------------------------------------------------------------------------------------------- c: runs
 
 GROUPS = {"A": "Universal\npotentials", "C": "Fine-tuned", "D": "Cl excess"}  # analysis-plan part -> table group
+AMENDMENT_SERIES = {"ftK2_416_200": "A5"}  # series run here, after July 2026, under a protocol amendment
+FACES = {"published": style.DARK_GRAY, "july": style.WHITE, "amendment": style.LIGHT_GRAY}  # cell face by origin
 
 
 def _runs(reproduction: pd.DataFrame, thermostat: pd.DataFrame) -> pd.DataFrame:
-    """One row per MD run: published (and its reproduction classes) or new, and the July run log if any."""
+    """One row per MD run: its origin (published in July, run in July but not published, or run here under an
+    amendment), the reproduction classes of a published run, and its run log if any.
+
+    Rows follow the table: by group, the stage-two fine-tunes before the stage-one one, else catalogue order."""
     classes = reproduction.set_index("run_id")
     logs = thermostat.set_index("run_id")["run_log"].fillna("").astype(str)
+    order = sorted(SERIES, key=lambda sr: (list(GROUPS).index(sr["part"]), sr["model"] in _fine_tuned(main=False)))
     rows = []
-    for series in [s for s in SERIES if s["id"] not in common.PENDING_SERIES]:
+    for series in order:
+        amendment = AMENDMENT_SERIES.get(series["id"], "")
         for temperature in TEMPERATURES:
             rid = run_id(series["id"], temperature)
             published = rid in classes.index
             if published != (series["published"] is not None):
                 raise ValueError(f"{rid}: reproduction table and series catalogue disagree")
+            if published and amendment:
+                raise ValueError(f"{rid}: a run of amendment {amendment} cannot have been published in July")
             log = logs.get(rid, "")
             rows.append({"run_id": rid, "series": series["id"], "label": series["label"], "part": series["part"],
                          "group": GROUPS[series["part"]].replace("\n", " "), "model": series["model"],
                          "run_type": _run_type(series), "n_atoms": series["n_atoms"],
                          "production_ps": series["production_ps"], "temperature_K": temperature,
-                         "published_july_2026": published,
+                         "origin": "published" if published else "amendment" if amendment else "july",
+                         "amendment": amendment, "published_july_2026": published,
                          "pymatgen_class": classes.at[rid, "pymatgen_class"] if published else "",
                          "kinisi_D_class": classes.at[rid, "kinisi_D_class"] if published else "",
                          "kinisi_std_class": classes.at[rid, "kinisi_std_class"] if published else "",
-                         "run_log": log, "run_log_survives": log != ""})
+                         "run_log": log, "has_run_log": log != ""})
     return pd.DataFrame(rows)
 
 
@@ -550,7 +571,6 @@ def _panel_c(ax, runs: pd.DataFrame, width: float, height: float) -> Path:
     x_group, x_bracket, x_dot, x_label = 1.0, 11.6, 13.4, 15.2
     x_cells = [40.0 + i * (cell_w + 1.2) for i in range(len(TEMPERATURES))]
     x_atoms, x_ps = x_cells[-1] + cell_w + 6.0, x_cells[-1] + cell_w + 19.0
-    face = {True: style.DARK_GRAY, False: style.WHITE}
     series_ids = list(dict.fromkeys(runs["series"]))
     parts = [runs.loc[runs["series"] == sid, "part"].iloc[0] for sid in series_ids]
     ys, y = [], header + pitch / 2.0
@@ -586,29 +606,31 @@ def _panel_c(ax, runs: pd.DataFrame, width: float, height: float) -> Path:
         ax.text(x_ps, y, str(first["production_ps"]), ha="center", va="center", fontsize=style.SMALL)
         for x, temperature in zip(x_cells, TEMPERATURES):
             run = group[group["temperature_K"] == temperature].iloc[0]
-            published = bool(run["published_july_2026"])
-            ax.add_patch(Rectangle((x, y - cell_h / 2.0), cell_w, cell_h, facecolor=face[published],
+            ax.add_patch(Rectangle((x, y - cell_h / 2.0), cell_w, cell_h, facecolor=FACES[run["origin"]],
                                    edgecolor=style.DARK_GRAY, linewidth=0.6))
-            if run["run_log_survives"]:
+            if run["has_run_log"]:
                 ax.text(x + cell_w / 2.0, y, "log", ha="center", va="center", fontsize=style.SMALL,
-                        color=style.WHITE if published else style.BLACK)
+                        color=style.WHITE if run["origin"] == "published" else style.BLACK)
             rows.append({**run.to_dict(), "row_y_mm": y, "cell_x_mm": x})
 
     # key to the right of the matrix: cells, then markers (colour by potential, shape by run type)
     lx = x_ps + 10.0
     published = runs["published_july_2026"]
-    n_pub, n_log = int(published.sum()), int(runs["run_log_survives"].sum())
+    n = runs["origin"].value_counts()
+    n_log = int(runs["has_run_log"].sum())
+    amendments = ", ".join(sorted(set(runs.loc[runs["origin"] == "amendment", "amendment"])))
     classes = {column: "/".join(sorted(set(runs.loc[published, column])))
                for column in ("pymatgen_class", "kinisi_D_class", "kinisi_std_class")}
     if classes["kinisi_D_class"] != classes["kinisi_std_class"]:
         raise ValueError("kinisi D and its uncertainty differ in reproduction class; reword the key")
     entries = [
-        (face[True], "", f"Published in July 2026 and reproduced here ({n_pub} runs): pymatgen\n"
-                         f"class {classes['pymatgen_class']}, kinisi D and its uncertainty class "
-                         f"{classes['kinisi_D_class']} ({registry.label('reproduction', short=True)})"),
-        (face[False], "", f"Analysed here for the first time ({len(runs) - n_pub} runs)"),
-        (None, "log", f"July run log survives ({n_log} runs): thermostat statistics recomputed\n"
-                      f"from the trajectory are checked against it; the other {len(runs) - n_log} runs\n"
+        (FACES["published"], "", f"Published in July 2026 and reproduced here ({n['published']} runs): pymatgen\n"
+                                 f"class {classes['pymatgen_class']}, kinisi D and its uncertainty class "
+                                 f"{classes['kinisi_D_class']} ({registry.label('reproduction', short=True)})"),
+        (FACES["july"], "", f"Run in July 2026, analysed here for the first time ({n['july']} runs)"),
+        (FACES["amendment"], "", f"Run and analysed here, amendment {amendments} ({n['amendment']} runs)"),
+        (None, "log", f"Run log kept ({n_log} runs): thermostat statistics recomputed from\n"
+                      f"the trajectory are checked against it; the other {len(runs) - n_log} runs\n"
                       "have statistics from the trajectory only"),
     ]
     ly = header + pitch / 2.0
@@ -624,7 +646,7 @@ def _panel_c(ax, runs: pd.DataFrame, width: float, height: float) -> Path:
     ly += 1.4
     shapes = [("production", f"{runs.loc[runs['run_type'] == 'production', 'n_atoms'].iloc[0]} atoms, production"),
               ("cell_52", "52 atoms"), ("clexcess", "Cl-excess series")]
-    for index, model in enumerate(("foundation", "mattersim", *style.MD_STAGE)):
+    for index, model in enumerate((*style.UNIVERSAL_MODELS, *_fine_tuned())):
         name = style.MODEL_LABELS[model] + (f" ({_stage(model)})" if model in style.MD_STAGE else "")
         ax.plot(lx + 3.5, ly + index * 2.8, **common.model_style(model, size=SWATCH_PT, edge=0.6))
         ax.text(lx + 9.0, ly + index * 2.8, name, ha="left", va="center", fontsize=style.SMALL)
@@ -648,7 +670,7 @@ def make() -> list[Path]:
     box_a = (3.5, top + 5.0, 50.0, 54.0)
     ax_a = L.axes(*box_a, frame="none")
     sources = [_panel_a(ax_a, cell, L, box_a)]
-    b_left, b_top, b_height = 59.0, top - 2.0, 84.0
+    b_left, b_top, b_height = 59.0, top - 2.0, 86.5
     b_width = WIDTH - MARGIN_MM - b_left
     ax_b = L.axes(b_left, b_top, b_width, b_height, frame="none")
     sources.append(_panel_b(ax_b, configs, qe, aimd, b_width, b_height))
@@ -670,15 +692,22 @@ def _caption() -> str:
     ref = _aimd_facts(aimd)
     facts = _design_facts()
     counts = atoms["element"].value_counts()
-    published = runs["published_july_2026"]
-    n_pub, n_log = int(published.sum()), int(runs["run_log_survives"].sum())
-    new = []
-    for sid in runs.loc[~published, "series"].unique():
-        series = runs[runs["series"] == sid].iloc[0]
-        name = series["label"].split(", ")[0].replace("Fine-tuned on ", "fine-tuned on ")
-        if series["model"] in style.MD_STAGE:
-            name += f" ({_stage(series['model'])})"
-        new.append(f"{name}, {series['n_atoms']} atoms, {series['production_ps']} ps")
+    published, origin = runs["published_july_2026"], runs["origin"]
+    n, n_log = origin.value_counts(), int(runs["has_run_log"].sum())
+    n_log_new = int((runs["has_run_log"] & (origin == "amendment")).sum())
+    amendments = ", ".join(sorted(set(runs.loc[origin == "amendment", "amendment"])))
+
+    def named(kind: str) -> str:
+        """The series of the runs of one origin, '; '-separated."""
+        names = []
+        for sid in runs.loc[origin == kind, "series"].unique():
+            series = runs[runs["series"] == sid].iloc[0]
+            name = series["label"].split(", ")[0]
+            if series["model"] in style.MD_STAGE:
+                name = f"fine-tuned on {_label_set(series['model'])} at {_stage(series['model'])}"
+            names.append(f"{name}, {series['n_atoms']} atoms, {series['production_ps']} ps")
+        return "; ".join(names)
+
     classes = {column: ", ".join(sorted(set(runs.loc[published, column])))
                for column in ("pymatgen_class", "kinisi_D_class", "kinisi_std_class")}
     frames = sorted(configs["frame"].unique())
@@ -690,7 +719,10 @@ def _caption() -> str:
         return ", ".join(values[:-1]) + f" and {values[-1]} {unit}"
 
     volume_ratio = (ref["a"] / cell["a"]) ** 3
-    stages = {model: f"{_label_set(model)} at {_stage(model)}" for model in style.MD_STAGE}
+    main_stage = {_stage(model) for model in _fine_tuned(main=True)}
+    if len(main_stage) != 1:
+        raise ValueError("the fine-tunes of the main figures differ in training stage; reword the caption")
+    main_stage = main_stage.pop()
     return (
         registry.heading(KEY)
         + f"**a**, The 52-atom cell of every Li6PS5Cl run (Li{counts['Li']}P{counts['P']}S{counts['S']}Cl{counts['Cl']}, "
@@ -701,18 +733,20 @@ def _caption() -> str:
         f"The origin is shifted by {ORIGIN_SHIFT:g} along each axis so that the {counts['P']} PS4 tetrahedra "
         f"(P-S < {BOND_CUTOFF_A:g} A, minimum image; {len(bonds)} bonds) lie inside the drawn cell. The "
         f"{facts['n_prod']}-atom cell is its 2x2x2 supercell. "
-        f"**b**, Study design (protocol amendment A3): every model is compared with DFT. Grey boxes, inputs and "
+        f"**b**, Study design (protocol amendments A3-A5): every model is compared with DFT. Grey boxes, inputs and "
         f"simulations; outlined boxes with a figure badge, the three comparisons and the figure that shows each; the "
         f"banner below them states the rule they share. "
         f"Against DFT labels ({registry.label('forces')}): {len(configs)} configurations (frames "
         f"{frames[0]}-{frames[-1]}, {len(frames)} per source temperature) of the 52-atom, 50-ps MACE-MP-0 runs were "
         f"labelled with Quantum ESPRESSO {qe_version} (PBE) at the Gamma point ({k_points['gamma']} k-point) and on a "
         f"2x2x2 mesh ({k_points['k222']} k-points); MACE-MP-0 small was fine-tuned once on each label set, and the "
-        f"forces and energies of MACE-MP-0 and of the fine-tuned models are compared with these labels on held-out "
-        f"configurations. {common.naming_sentence(configs)} "
+        f"forces and energies of the two universal potentials (MatterSim from amendment A4) and of the fine-tuned "
+        f"models are compared with these labels on held-out configurations. {common.naming_sentence(configs)} "
         f"Against AIMD ({registry.label('diffusion')}): the {facts['n_prod']}-atom, {facts['ps_prod']}-ps MD runs of "
         f"all four models (the two universal potentials, MACE-MP-0 small, the foundation model, and MatterSim; the "
-        f"two fine-tuned models, on the {stages['ftG']} and on the {stages['ftK']}) at {listed(TEMPERATURES)} are compared with "
+        f"two fine-tuned models, both at {main_stage}, on the "
+        f"{' and on the '.join(_label_set(model) for model in _fine_tuned(main=True))}) at {listed(TEMPERATURES)} "
+        f"are compared with "
         f"AIMD of the same ordered cell through the Li diffusion coefficient D at {listed(ref['shared'])}, without "
         f"extrapolation. The 52-atom runs of the universal potentials ({listed(facts['tiers'], 'ps')}), which have "
         f"the cell size of the AIMD reference, are compared with it in {registry.label('sampling', 'g')}. The AIMD "
@@ -720,28 +754,37 @@ def _caption() -> str:
         f"a = {ref['a']:.2f} A (a {100 * (1 - volume_ratio):.0f} % smaller volume than here), a "
         f"{ref['time_step_fs']:g}-fs time step and {ref['ps']:.0f} ps at each of {listed(ref['temperatures'])}. "
         f"Fine-tuned against foundation ({registry.label('finetune')}): the fine-tuned MD runs follow the protocol "
-        f"of the {facts['n_prod']}-atom, {facts['ps_prod']}-ps MACE-MP-0 runs and are compared with them through the "
-        f"reading fixed in advance (protocol/analysis_plan.md). The Cl-excess series Li6-xPS5-xCl1+x "
+        f"of the {facts['n_prod']}-atom, {facts['ps_prod']}-ps MACE-MP-0 runs and are compared with them through "
+        f"readings fixed in advance: the labels at equal training stage, with both fine-tunes at {main_stage} "
+        f"(amendment A5, now the primary reading), and, as first pre-registered (protocol/analysis_plan.md), with "
+        + " and ".join(f"the July run on the {_label_set(model)} at {_stage(model)}" for model in _fine_tuned(main=False))
+        + f"; the two 2x2x2 runs give the training stage at equal labels ({registry.label('finetune', 'c')}). "
+        f"The Cl-excess series Li6-xPS5-xCl1+x "
         f"(x = {facts['cl_x'][0]:g}-{facts['cl_x'][-1]:g}; {facts['cl_atoms'][0]}-{facts['cl_atoms'][-1]} atoms, "
         f"{facts['cl_ps'][0]} ps) runs with MACE-MP-0 ({registry.label('clexcess')}). Markers: colour by potential "
         f"(red, the universal potentials; dark blue, the fine-tune on the Gamma labels; blue, the fine-tune on the "
-        f"2x2x2 labels), fill by training stage (filled, stage 2 and the universal potentials; open, stage 1); black "
-        f"square, AIMD. Black and grey bars, the 2x2x2 and Gamma label sets. "
-        f"**c**, The {len(runs)} MD runs (n = {len(runs)}: {n_pub} published, {len(runs) - n_pub} new; {n_log} with "
-        f"a surviving run log), one per series and temperature, grouped into the universal potentials, the "
-        f"fine-tuned models (named by label set and the training stage of the model that drove the MD) and the "
-        f"Cl-excess series Li6-xPS5-xCl1+x (rows by x). Dark cells: the {n_pub} runs published in July 2026, "
-        f"re-analysed here from the same trajectories; every run is in pymatgen class {classes['pymatgen_class']} "
-        f"(D identical to the published value within a relative difference of {repro.PYMATGEN_EXACT:g}) and in "
-        f"kinisi class {classes['kinisi_D_class']} (D within max({repro.KINISI_SEED_FACTOR:g} s_seed, "
-        f"{100 * repro.KINISI_D_FLOOR:g} %) and its standard deviation within max({repro.KINISI_SEED_FACTOR:g} "
-        f"s_seed, {100 * repro.KINISI_STD_FLOOR:g} %) of the published values, s_seed being the scatter over ten "
-        f"sampling seeds; protocol/reproduction_rule.md; {registry.label('reproduction')}). White cells: the "
-        f"{len(runs) - n_pub} runs analysed here for the first time ({'; '.join(new)}). 'log': the July run log "
-        f"survives ({n_log} runs) and the thermostat statistics recomputed from the trajectory were checked against "
-        f"it; for the other {len(runs) - n_log} runs they come from the trajectory only. Markers: colour by potential "
-        f"and fill by training stage as in b; shape by run type (circle, {facts['n_prod']}-atom production run; "
-        f"triangle, 52-atom run; inverted triangle, Cl-excess series). "
+        f"2x2x2 labels), fill by training stage (filled, stage 2 and the universal potentials; open, stage 1, in c "
+        f"only); black square, AIMD. Black and grey bars, the 2x2x2 and Gamma label sets. "
+        f"**c**, The {len(runs)} MD runs (n = {len(runs)}: {n['published']} published in July 2026, {n['july']} more "
+        f"run in July and analysed here for the first time, {n['amendment']} run here under amendment {amendments}; "
+        f"{n_log} with a run log), one per series and temperature, grouped into the universal potentials, the "
+        f"fine-tuned models (named by label set and the training stage of the model that drove the MD, stage 2 "
+        f"first) and the Cl-excess series Li6-xPS5-xCl1+x (rows by x). Dark cells: the {n['published']} runs "
+        f"published in July 2026, re-analysed here from the same trajectories; every run is in pymatgen class "
+        f"{classes['pymatgen_class']} (D identical to the published value within a relative difference of "
+        f"{repro.PYMATGEN_EXACT:g}) and in kinisi class {classes['kinisi_D_class']} (D within "
+        f"max({repro.KINISI_SEED_FACTOR:g} s_seed, {100 * repro.KINISI_D_FLOOR:g} %) and its standard deviation "
+        f"within max({repro.KINISI_SEED_FACTOR:g} s_seed, {100 * repro.KINISI_STD_FLOOR:g} %) of the published "
+        f"values, s_seed being the scatter over ten sampling seeds; protocol/reproduction_rule.md; "
+        f"{registry.label('reproduction')}). White cells: the {n['july']} runs made in July 2026 and analysed here "
+        f"for the first time ({named('july')}). Light grey cells: the {n['amendment']} runs of amendment "
+        f"{amendments} ({named('amendment')}), run and analysed here with the MD driver, cell and settings of the "
+        f"July fine-tuned runs (protocol/amendments.md). 'log': a run log was kept ({n_log} runs: "
+        f"{n_log - n_log_new} from July 2026, {n_log_new} from amendment {amendments}) and the thermostat statistics "
+        f"recomputed from the trajectory were checked against it; for the other {len(runs) - n_log} runs they come "
+        f"from the trajectory only. Markers: colour by potential and fill by training stage as in b; shape by run "
+        f"type (circle, {facts['n_prod']}-atom production run; triangle, 52-atom run; inverted triangle, Cl-excess "
+        f"series). "
         + common.sources([STRUCTURE, CONFIGS, QE_RUNS, AIMD, REPRODUCTION, THERMOSTAT])
     )
 

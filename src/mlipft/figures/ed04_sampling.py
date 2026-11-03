@@ -2,15 +2,18 @@
 
 a, RMS position difference between runs that share their settings (the three 52-atom tiers of each
 universal potential, and the 416-atom MACE-MP-0 production run against the Cl-excess x = 0 run)
-against production time; b, pymatgen D of the four consecutive 50-ps blocks of the four 416-atom,
-200-ps production runs relative to the full-run value; c, kinisi D against the start of its fit
-window, relative to the primary start at 30 %; d, pymatgen D against kinisi D for all 42 runs;
-e, sigma(300 K) and f, activation energy of the Arrhenius fits against simulated time per run;
-g, kinisi D of the 52-atom runs (the AIMD cell size) and of the second 416-atom MACE-MP-0 run
-relative to AIMD; h, Li mean-squared displacement of the 100-ps, 52-atom runs against AIMD.
+against production time; b, pymatgen D of the four consecutive 50-ps blocks of the runs of the five
+416-atom, 200-ps production series (constants.PRODUCTION_SERIES) relative to the full-run value;
+c, kinisi D against the start of its fit window, relative to the primary start at 30 %, one facet
+per production series; d, pymatgen D against kinisi D for all 45 runs; e, sigma(300 K) and
+f, activation energy of the Arrhenius fits against simulated time per run; g, kinisi D of the
+52-atom runs (the AIMD cell size) and of the second 416-atom MACE-MP-0 run relative to AIMD; h, Li
+mean-squared displacement of the 100-ps, 52-atom runs against AIMD.
 
 Temperatures are colour-coded (red tiers) only in a-c, where the models are separated by facets or
 positions; d-h colour the potentials and shape the run types (style.MODEL_COLORS, style.RUN_MARKERS).
+Both 2x2x2 runs are shown, named with their stage: the July run (stage-one model) open, the run of
+amendment A5 (stage-two model) filled.
 """
 from __future__ import annotations
 
@@ -38,11 +41,15 @@ COMPARISON = paths.RESULTS / "aimd_comparison.csv"
 AIMD = paths.REFERENCES / "aimd_deng2017" / "transport.csv"
 AIMD_MSD = paths.REFERENCES / "aimd_deng2017" / "msd.csv.gz"
 
+# Names of the production series in c (facet titles) and b (tick labels); a fine-tune is named with its label set
+# and the training stage of the model that drove its MD (both 2x2x2 runs appear).
 PRODUCTION_TITLES = {"mace_416_200": "MACE-MP-0", "mattersim_416_200": "MatterSim",
-                     "ftG_416_200": "Fine-tuned, Gamma", "ftK_416_200": "Fine-tuned, 2x2x2"}
+                     "ftG_416_200": "Fine-tuned,\nGamma, stage 2", "ftK_416_200": "Fine-tuned,\n2x2x2, stage 1",
+                     "ftK2_416_200": "Fine-tuned,\n2x2x2, stage 2"}
 PRODUCTION_TICKS = {"mace_416_200": "MACE-MP-0", "mattersim_416_200": "MatterSim",
-                    "ftG_416_200": "Fine-tuned,\nGamma", "ftK_416_200": "Fine-tuned,\n2x2x2"}
-PRODUCTION = tuple(s for s in C.PRODUCTION_SERIES if s not in common.PENDING_SERIES)
+                    "ftG_416_200": "Fine-tuned,\nGamma,\nstage 2", "ftK_416_200": "Fine-tuned,\n2x2x2,\nstage 1",
+                    "ftK2_416_200": "Fine-tuned,\n2x2x2,\nstage 2"}
+STAGE_WORDS = {"s1": "stage one", "s2": "stage two"}
 UNIVERSAL = ("foundation", "mattersim")
 CELL_52 = {"foundation": ("mace_52_050", "mace_52_100", "mace_52_150"),
            "mattersim": ("mattersim_52_050", "mattersim_52_100", "mattersim_52_150")}
@@ -52,9 +59,11 @@ MSD_TEMPERATURES = (600, 1000)
 DIVERGENCE_STYLES = {"mace_52": ("MACE-MP-0, 52-atom tiers", "-", 0.7),
                      "mattersim_52": ("MatterSim, 52-atom tiers", (0, (3, 1.5)), 0.7),
                      "mace_416": ("MACE-MP-0 416 atoms vs Cl x = 0", "-", 1.6)}
-T_OFFSETS = dict(zip(C.TEMPERATURES, (-0.27, 0.0, 0.27)))
-BLOCK_OFFSETS = (-0.09, -0.03, 0.03, 0.09)
-C_OFFSETS = dict(zip(C.TEMPERATURES, (-0.028, 0.0, 0.028)))  # c: start-fraction offsets of the temperatures
+T_OFFSETS = dict(zip(C.TEMPERATURES, (-0.3, 0.0, 0.3)))
+BLOCK_OFFSETS = (-0.105, -0.035, 0.035, 0.105)
+C_OFFSETS = dict(zip(C.TEMPERATURES, (-0.031, 0.0, 0.031)))  # c: start-fraction offsets of the temperatures
+C_MARKER = 2.1  # c: marker diameter (pt) in the narrow facets
+C_LIMITS = (0.04, 0.56)  # c: x limits, so that the offset markers at 0.1 and 0.5 clear the frame
 # e, f: run kind of results/convergence.csv -> marker of style.RUN_MARKERS, and horizontal offsets (ps) so
 # that markers at the same simulated time stay apart.
 CONVERGENCE_KINDS = {"cell_52": "cell_52", "production_window": "production", "production_full": "production",
@@ -65,19 +74,17 @@ TIME_OFFSETS = {("cell_52", "foundation"): -12.0, ("cell_52", "mattersim"): -6.0
 # g: slot of each run inside a temperature group (MACE-MP-0 runs, a gap, MatterSim runs).
 G_ORDER = (*CELL_52["foundation"], SECOND_RUN, None, *CELL_52["mattersim"])
 MARKER = 3.2
-D_MARKER, D_EDGE = 2.6, 0.6
-# d: slot order inside each temperature group (MACE-MP-0 runs, MatterSim runs, the two fine-tunes).
+D_MARKER, D_EDGE = 2.2, 0.5
+# d: slot order inside each temperature group (MACE-MP-0 runs, MatterSim runs, the three fine-tuned runs).
 D_ORDER = (*CELL_52["foundation"], "mace_416_200", SECOND_RUN, "clx025_408_150", "clx050_400_150", "clx075_392_150",
-           *CELL_52["mattersim"], "mattersim_416_200", "ftG_416_200", "ftK_416_200")
-D_KEY = {"foundation": "MACE-MP-0", "mattersim": "MatterSim", "ftG": "Gamma fine-tune", "ftK": "2x2x2 fine-tune"}
+           *CELL_52["mattersim"], "mattersim_416_200", "ftG_416_200", "ftK_416_200", "ftK2_416_200")
+# d: key entries (the fine-tunes by label set and training stage, as common.SHORT_LABELS names the models)
+D_KEY = {"foundation": "MACE-MP-0", "mattersim": "MatterSim", "ftG": "Gamma, stage 2", "ftK": "2x2x2, stage 1",
+         "ftK2": "2x2x2, stage 2"}
 
 
 def _load():
-    transport = common.read(TRANSPORT)
-    transport = transport[~transport["series"].isin(common.PENDING_SERIES)].reset_index(drop=True)
-    windows = common.read(WINDOWS)
-    windows = windows[windows["run_id"].isin(transport["run_id"])].reset_index(drop=True)
-    return {"transport": transport, "windows": windows,
+    return {"transport": common.read(TRANSPORT), "windows": common.read(WINDOWS),
             "divergence": common.read(DIVERGENCE), "msd": common.read(MSD), "convergence": common.read(CONVERGENCE),
             "comparison": common.read(COMPARISON),
             "aimd": common.read(AIMD).sort_values("temperature_K").reset_index(drop=True),
@@ -91,9 +98,14 @@ def _and(items) -> str:
 
 
 def _run_label(run: str) -> str:
-    """Readable name of a run id, e.g. 'Fine-tuned on Gamma labels, 416 atoms, 200 ps, 600 K'."""
+    """Readable name of a run id, e.g. 'fine-tuned on Gamma labels (stage two), 416 atoms, 200 ps, 600 K'; a
+    fine-tune is named with the training stage of its MD model where the catalogue label does not say it."""
     series, temperature = run.rsplit("_", 1)
-    label = C.SERIES_BY_ID[series]["label"].replace("Fine-tuned", "fine-tuned")
+    info = C.SERIES_BY_ID[series]
+    label = info["label"].replace("Fine-tuned", "fine-tuned")
+    stage = style.MD_STAGE.get(info["model"])
+    if stage is not None and "stage" not in label:
+        label = label.replace(" labels", f" labels ({STAGE_WORDS[stage]})", 1)
     return f"{label}, {temperature.replace('K', ' K')}"
 
 
@@ -107,8 +119,8 @@ def _series_style(series: str) -> tuple[str, str]:
 
 def _temperature_marker(series: str, temperature: int, size: float) -> dict:
     """``ax.plot`` marker keywords of a production run in a temperature-coloured panel (b, c): colour by
-    temperature, fill by the training stage of the model (the 2x2x2 fine-tune ran MD with its stage-one model,
-    so its markers are open)."""
+    temperature, fill by the training stage of the model (the July 2x2x2 run used the stage-one model, so its
+    markers are open; the 2x2x2 run of amendment A5 used the stage-two model and is filled)."""
     color = style.TEMPERATURE_COLORS[temperature]
     if common.filled(C.SERIES_BY_ID[series]["model"]):
         return {"marker": "o", "markersize": size, "markeredgewidth": 0, "color": color, "markerfacecolor": color}
@@ -183,7 +195,7 @@ def _panel_b(ax, transport: pd.DataFrame, windows: pd.DataFrame) -> None:
     blocks = windows[windows["kind"] == "block_start_ps"].copy()
     rows = []
     ax.axhline(1.0, **style.UNITY_LINE)
-    for index, series in enumerate(PRODUCTION):
+    for index, series in enumerate(C.PRODUCTION_SERIES):
         for temperature in C.TEMPERATURES:
             run = C.run_id(series, temperature)
             part = blocks[blocks["run_id"] == run].sort_values("value")
@@ -195,14 +207,14 @@ def _panel_b(ax, transport: pd.DataFrame, windows: pd.DataFrame) -> None:
             rows.extend({"run_id": run, "series": series, "temperature_K": temperature, "block_start_ps": start,
                          "x": xi, "D_block_cm2_s": d, "D_full_run_cm2_s": full[run], "ratio": r}
                         for start, xi, d, r in zip(part["value"], x, part["D_cm2_s"], ratio))
-    for index in range(1, len(PRODUCTION)):
+    for index in range(1, len(C.PRODUCTION_SERIES)):
         ax.axvline(index - 0.5, color=style.LIGHT_GRAY, lw=0.5, zorder=0)
     ax.set_yscale("log")
     ax.set_ylim(0.6, 5.0)
     style.log_ticks(ax, "y")
     ax.set_yticks([0.7, 1, 1.5, 2, 3], ["0.7", "1", "1.5", "2", "3"])
-    ax.set_xlim(-0.5, len(PRODUCTION) - 0.5)
-    ax.set_xticks(range(len(PRODUCTION)), [PRODUCTION_TICKS[s] for s in PRODUCTION])
+    ax.set_xlim(-0.5, len(C.PRODUCTION_SERIES) - 0.5)
+    ax.set_xticks(range(len(C.PRODUCTION_SERIES)), [PRODUCTION_TICKS[s] for s in C.PRODUCTION_SERIES])
     ax.tick_params(axis="x", length=0, pad=2.5)
     ax.set_ylabel("D of a 50-ps block / D of the\nfull 200-ps run (pymatgen)")
     handles = [Line2D([0], [0], color=style.TEMPERATURE_COLORS[t], lw=0.5, marker="o", markersize=2.6,
@@ -216,7 +228,7 @@ def _panel_c(axes, transport: pd.DataFrame, windows: pd.DataFrame) -> None:
     primary = transport.set_index("run_id")
     starts = windows[windows["kind"] == "kinisi_start_fraction"]
     rows = []
-    for index, (ax, series) in enumerate(zip(axes, PRODUCTION)):
+    for index, (ax, series) in enumerate(zip(axes, C.PRODUCTION_SERIES, strict=True)):
         ax.axhline(1.0, **style.UNITY_LINE)
         ax.axvline(C.KINISI_START_FRACTION, color=style.LIGHT_GRAY, lw=0.6, zorder=0)
         for temperature in C.TEMPERATURES:
@@ -231,14 +243,14 @@ def _panel_c(axes, transport: pd.DataFrame, windows: pd.DataFrame) -> None:
             error = part["kinisi_D_std_cm2_s"] / reference
             dx = C_OFFSETS[temperature]
             ax.errorbar(part["value"] + dx, ratio, yerr=error, lw=0.7, elinewidth=0.5, capsize=1.0, capthick=0.5,
-                        zorder=3, **_temperature_marker(series, temperature, 2.4))
+                        zorder=3, **_temperature_marker(series, temperature, C_MARKER))
             rows.extend({"run_id": run, "series": series, "temperature_K": temperature, "start_fraction": f,
                          "x": f + dx, "kinisi_D_cm2_s": d, "kinisi_D_std_cm2_s": s, "D_at_0.3_cm2_s": reference,
                          "ratio": r, "ratio_error": e}
                         for f, d, s, r, e in zip(part["value"], part["kinisi_D_cm2_s"], part["kinisi_D_std_cm2_s"],
                                                  ratio, error))
-        ax.set_xlim(0.05, 0.55)
-        ax.set_xticks([0.1, 0.2, 0.3, 0.4, 0.5], ["0.1", "0.2", "0.3", "0.4", "0.5"])
+        ax.set_xlim(*C_LIMITS)
+        ax.set_xticks([0.1, 0.2, 0.3, 0.4, 0.5], ["0.1", "", "0.3", "", "0.5"])  # labels on alternate ticks: narrow facets
         ax.set_ylim(0.55, 2.1)
         ax.set_yticks([0.6, 1.0, 1.4, 1.8])
         ax.set_title(PRODUCTION_TITLES[series], fontsize=style.SMALL, pad=2.0, color=style.BLACK)
@@ -247,10 +259,10 @@ def _panel_c(axes, transport: pd.DataFrame, windows: pd.DataFrame) -> None:
         else:
             ax.set_yticks([0.6, 1.0, 1.4, 1.8], ["0.6", "1.0", "1.4", "1.8"])
             ax.set_ylabel("kinisi D / D at 0.3")
-    handles = [Line2D([0], [0], color=style.TEMPERATURE_COLORS[t], lw=0.7, marker="o", markersize=2.4,
+    handles = [Line2D([0], [0], color=style.TEMPERATURE_COLORS[t], lw=0.7, marker="o", markersize=C_MARKER,
                       markeredgewidth=0, label=f"{t} K") for t in C.TEMPERATURES]
-    axes[-1].legend(handles=handles, loc="upper right", fontsize=style.SMALL, handlelength=1.0, handletextpad=0.3,
-                    labelspacing=0.25, borderaxespad=0.3)
+    axes[-1].legend(handles=handles, loc="upper right", fontsize=style.SMALL, handlelength=0.7, handletextpad=0.3,
+                    labelspacing=0.25, borderaxespad=0.3, borderpad=0.2)  # right of the line at 0.3
     style.save_source(pd.DataFrame(rows), NAME, "c")
 
 
@@ -259,7 +271,7 @@ def _panel_d(ax, transport: pd.DataFrame) -> None:
     if set(D_ORDER) != set(transport["series"]):
         raise ValueError("panel d must show every series of transport.csv")
     temperatures = list(C.TEMPERATURES)
-    offsets = dict(zip(D_ORDER, np.linspace(-0.45, 0.45, len(D_ORDER))))
+    offsets = dict(zip(D_ORDER, np.linspace(-0.455, 0.455, len(D_ORDER))))
     ax.axhline(1.0, **style.UNITY_LINE)
     for index in range(1, len(temperatures)):
         ax.axvline(index - 0.5, color=style.LIGHT_GRAY, lw=0.5, zorder=0)
@@ -457,19 +469,19 @@ def make() -> list[Path]:
     data = _load()
     fig, L = common.new_figure(WIDTH, HEIGHT)
 
-    # row 1: a (hero), b
-    ax_a = L.axes(15.0, 8.0, 88.0, 46.0, row="1", col="left")
+    # row 1: a (hero), b (one group per production series)
+    ax_a = L.axes(15.0, 8.0, 84.0, 46.0, row="1", col="left")
     _panel_a(ax_a, data["divergence"])
-    ax_b = L.axes(119.0, 8.0, 62.0, 46.0, row="1")
+    ax_b = L.axes(115.0, 8.0, 66.0, 46.0, row="1")
     _panel_b(ax_b, data["transport"], data["windows"])
 
-    # row 2: c (four facets), d
-    width, gap = 21.5, 2.5
+    # row 2: c (one facet per production series), d
+    width, gap = 18.6, 2.2
     ax_c = [L.axes(15.0 + i * (width + gap), 72.0, width, 34.0, row="2", col="left" if i == 0 else None)
-            for i in range(4)]
+            for i in range(len(C.PRODUCTION_SERIES))]
     _panel_c(ax_c, data["transport"], data["windows"])
     L.text(*_below(L, ax_c, 5.4), "Start of the kinisi fit (fraction of the run)", ha="center", va="top")
-    ax_d = L.axes(126.0, 72.0, 55.0, 34.0, row="2")
+    ax_d = L.axes(130.0, 72.0, 51.0, 34.0, row="2")
     _panel_d(ax_d, data["transport"])
 
     # row 3: e, f, key
@@ -488,9 +500,9 @@ def make() -> list[Path]:
     L.text(*_below(L, ax_h, 5.4), "Lag time (ps)", ha="center", va="top")
 
     L.letter(ax_a, "a", 4.0, 6.0)
-    L.letter(ax_b, "b", 106.0, 6.0)
+    L.letter(ax_b, "b", 102.0, 6.0)
     L.letter(ax_c[0], "c", 4.0, 68.0)
-    L.letter(ax_d, "d", 114.0, 68.0)
+    L.letter(ax_d, "d", 119.0, 68.0)
     L.letter(ax_e, "e", 4.0, 121.0)
     L.letter(ax_f, "f", 69.0, 121.0)
     L.letter(ax_g, "g", 4.0, 171.0)
@@ -517,13 +529,17 @@ def _caption() -> str:
     pairs = divergence.groupby(["run_a", "run_b"]).ngroups
     pairs_52 = divergence[divergence["run_a"].str.contains("_52_")].groupby(["run_a", "run_b"]).ngroups
 
+    production = [C.run_id(s, t) for s in C.PRODUCTION_SERIES for t in C.TEMPERATURES]
     full = transport.set_index("run_id")["D_cm2_s"]
-    blocks = windows[windows["kind"] == "block_start_ps"].copy()
+    blocks = windows[(windows["kind"] == "block_start_ps") & windows["run_id"].isin(production)].copy()
+    per_run = blocks.groupby("run_id").size()
+    if set(per_run.index) != set(production) or per_run.nunique() != 1:
+        raise ValueError("expected the same number of blocks for every production run")
     blocks["ratio"] = blocks["D_cm2_s"] / blocks["run_id"].map(full)
     blocks["temperature_K"] = blocks["run_id"].str.extract(r"_(\d+)K$")[0].astype(int)
     ranges = blocks.groupby("temperature_K")["ratio"].agg(["min", "max"])
 
-    starts = windows[windows["kind"] == "kinisi_start_fraction"].copy()
+    starts = windows[(windows["kind"] == "kinisi_start_fraction") & windows["run_id"].isin(production)].copy()
     starts["ratio"] = starts["kinisi_D_cm2_s"] / starts["run_id"].map(transport.set_index("run_id")["kinisi_D_cm2_s"])
     extreme = starts.loc[(starts["ratio"] - 1).abs().idxmax()]
     hot = starts[~starts["run_id"].str.endswith(f"_{min(C.TEMPERATURES)}K")]
@@ -575,19 +591,22 @@ def _caption() -> str:
         f"{big_zero.max():.2f} A (416 atoms), and by {last.min():.2f}-{last.max():.2f} A after "
         f"{divergence['time_ps'].max():g} ps, so the runs are independent trajectories and not extensions of one "
         f"another. Single values, no error bars. "
-        f"**b**, pymatgen D of the four consecutive 50-ps blocks of each 416-atom, 200-ps production run divided by "
-        f"the value from the full run (n = {len(blocks)} blocks of {len(PRODUCTION)} runs at "
-        f"{len(C.TEMPERATURES)} temperatures; blocks in time order from left to right; logarithmic axis; pymatgen "
-        "gives no uncertainty, so no error bars). Open markers, the 2x2x2 fine-tune, whose MD used its stage-one "
-        "model (fill marks the training stage, as in every figure). The ratio is "
+        f"**b**, pymatgen D of the {per_run.iloc[0]} consecutive {C.BLOCK_PS}-ps blocks of each 416-atom, 200-ps "
+        f"production run divided by the value from the full run (n = {len(blocks)} blocks of the {len(production)} "
+        f"runs, {len(C.PRODUCTION_SERIES)} production series at {len(C.TEMPERATURES)} temperatures; one group per "
+        "series, blocks in time order from left to right; logarithmic axis; pymatgen gives no uncertainty, so no "
+        "error bars). Both 2x2x2 runs are shown and named by the training stage of the model that drove their MD: "
+        "open markers, stage 1 (the July run); filled, stage 2 (the run of amendment A5; the Gamma run also used "
+        "its stage-two model). Fill marks the training stage, as in every figure. The ratio is "
         + "; ".join(f"{ranges.loc[t, 'min']:.2f}-{ranges.loc[t, 'max']:.2f} at {t} K" for t in C.TEMPERATURES)
         + f". At {min(C.TEMPERATURES)} K the slower models give block values well above the full-run value, i.e. "
         "pymatgen D still depends on the length of the analysed window there. "
         f"**c**, kinisi D of the same runs with the fit window starting at "
         f"{_and(f'{100 * f:.0f}' for f in fractions)} % of the run, divided by the primary value (start at "
         f"{100 * C.KINISI_START_FRACTION:.0f} %, grey line; n = {len(fractions)} starts for each of "
-        f"{len(PRODUCTION) * len(C.TEMPERATURES)} runs); error bars, kinisi posterior standard deviation "
-        f"divided by the same primary value; markers as in b, the three temperatures offset horizontally. Above {min(C.TEMPERATURES)} K the ratio stays within "
+        f"{len(production)} runs; one facet per production series); error bars, kinisi posterior standard "
+        f"deviation divided by the same primary value; markers as in b, the {len(C.TEMPERATURES)} temperatures "
+        f"offset horizontally. Above {min(C.TEMPERATURES)} K the ratio stays within "
         f"{hot['ratio'].min():.2f}-{hot['ratio'].max():.2f}; the largest change is {extreme['ratio']:.2f} "
         f"({_run_label(extreme['run_id'])}, start {extreme['value']:g}). "
         f"**d**, pymatgen D divided by kinisi D for all {len(transport)} runs (grey line, equality; logarithmic "
@@ -596,7 +615,8 @@ def _caption() -> str:
         f"production runs; triangles, the 52-atom runs; inverted triangles, the {n_clx} runs of the four 150-ps "
         f"Cl-excess series of MACE-MP-0 (x = 0-0.75, {registry.label('clexcess')}). Within each temperature, from "
         "left: MACE-MP-0 52-atom runs of 50, 100 and 150 ps, production run and Cl-excess runs x = 0, 0.25, 0.5 and "
-        "0.75, then MatterSim 52-atom runs and production run, then the Gamma and 2x2x2 fine-tunes. The ratio is "
+        "0.75, then MatterSim 52-atom runs and production run, then the fine-tunes: Gamma labels (stage 2) and "
+        "2x2x2 labels with the stage-1 (open) and the stage-2 model. The ratio is "
         + "; ".join(f"{by_t.loc[t, 'min']:.2f}-{by_t.loc[t, 'max']:.2f} at {t} K" for t in C.TEMPERATURES)
         + f" (largest {ratio.max():.2f}, {_run_label(worst['run_id'])}). "
         f"**e**, sigma(300 K) extrapolated from weighted Arrhenius fits of the pymatgen conductivity at "

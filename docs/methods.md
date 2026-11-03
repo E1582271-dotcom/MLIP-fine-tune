@@ -1,9 +1,11 @@
 # Methods
 
-All simulations were run between 30 June and 8 July 2026; this repository re-analyses them (no new
-MD, DFT or training). The commands that produced the data are in
+All simulations were run between 30 June and 8 July 2026, except one MD series of the stage-two
+2x2x2 fine-tune, added on 2 November 2026 with the July settings (amendment A5); this repository
+re-analyses them (no new DFT or training). The commands that produced the data are in
 [generation/README.md](../generation/README.md); the comparisons and the reproduction rule were
-fixed in [protocol/](../protocol/) before the re-analysis.
+fixed in [protocol/](../protocol/) before the re-analysis, and every later change is a dated
+amendment there.
 
 ## Structure model
 
@@ -33,7 +35,8 @@ Every run uses the same setup ([src/mlipft/simulation/md.py](../src/mlipft/simul
 | 52 atoms, 50 / 100 / 150 ps | MACE-MP-0 small, MatterSim | 52 | 5 ps + 50 / 100 / 150 ps | A (sampling check) |
 | Production | MACE-MP-0 small, MatterSim | 416 | 10 ps + 200 ps | A |
 | Fine-tuned, Gamma labels | MACE fine-tuned on Gamma-point labels (stage two) | 416 | 10 ps + 200 ps | C |
-| Fine-tuned, 2x2x2 labels | MACE fine-tuned on 2x2x2 labels (stage one) | 416 | 10 ps + 200 ps | C |
+| Fine-tuned, 2x2x2 labels | MACE fine-tuned on 2x2x2 labels (stage two; amendment A5, November 2026) | 416 | 10 ps + 200 ps | C |
+| Fine-tuned, 2x2x2 labels, July | MACE fine-tuned on 2x2x2 labels (stage one) | 416 | 10 ps + 200 ps | C |
 | Cl-excess series | MACE-MP-0 small | 392-416 | 10 ps + 150 ps | D |
 
 Potentials:
@@ -41,11 +44,11 @@ Potentials:
 - MACE-MP-0 small: the model of 2023-12-10 with 128 channels and L = 0, used through `mace_mp` without a dispersion correction.
 - MatterSim: the default model of the `mattersim` package (v1.0.0-1M).
 
-Which fine-tuned model drove each run was established from the forces stored in the trajectories (see "Model identity" below).
+Which fine-tuned model drove each run was established from the forces stored in the trajectories (see "Model identity" below). The run of amendment A5 used the July MD driver, container and package versions (mace-torch 0.3.16), recorded in its job log.
 
 ## Transport analysis
 
-For every trajectory ([src/mlipft/transport/estimators.py](../src/mlipft/transport/estimators.py)), with the settings of July 2026. All 42 trajectories were analysed in one environment, a Linux CPU node, with the package versions of [requirements-ingest.lock.txt](../requirements-ingest.lock.txt) ([protocol/amendments.md](../protocol/amendments.md) A2).
+For every trajectory ([src/mlipft/transport/estimators.py](../src/mlipft/transport/estimators.py)), with the settings of July 2026. All 45 trajectories were analysed in one environment, a Linux CPU node, with the package versions of [requirements-ingest.lock.txt](../requirements-ingest.lock.txt) ([protocol/amendments.md](../protocol/amendments.md) A2); the three of amendment A5 a week later, in the same environment.
 
 - **pymatgen.**
   - `DiffusionAnalyzer.from_structures(smoothed="max")` gives the Li tracer diffusion coefficient D.
@@ -101,7 +104,7 @@ For every trajectory ([src/mlipft/transport/estimators.py](../src/mlipft/transpo
 | Cutoffs | 60 Ry (wavefunctions), 480 Ry (charge density) |
 | Smearing | Gaussian, 0.01 Ry |
 | Convergence | 1e-7 Ry, mixing 0.4 |
-| k-points | `gamma`: Γ point only, real wavefunctions (about 26 min per configuration on 16 cores); `k222`: 2×2×2 Monkhorst-Pack mesh (about 5 h on 32 cores) |
+| k-points | `gamma`: Γ point only, real wavefunctions (about 28 min per configuration on 16 cores); `k222`: 2×2×2 Monkhorst-Pack mesh (about 5 h on 32 cores) |
 
 - **Reference set.** The 2×2×2 labels are taken as the better reference.
 - **Label-error floor.** The difference between the two label sets is the error floor of the Γ-point labels.
@@ -137,30 +140,37 @@ Splits and subsets:
 
 - **Files.** The training runs left eight model files and four TorchScript exports. Files that give identical predictions on all 27 configurations are one model, so there are four fine-tuned models.
 - **Assigning stages.** Each model was assigned to its training stage by reproducing the validation errors printed in its training log ([protocol/amendments.md](../protocol/amendments.md) A1 explains the training errors).
-- **Fingerprints.** For each fine-tuned MD run, four frames (first, 1/3, 2/3, last) were evaluated with every candidate model in float32. A run is assigned to a model when the RMS difference between the stored and the recomputed forces is below 1 meV/Å and every other candidate is at least 10 times further off.
+- **Fingerprints.** For each fine-tuned MD run, four frames (first, 1/3, 2/3, last) were evaluated with every candidate model in float32. A run is assigned to a model when the RMS difference between the stored and the recomputed forces is below 1 meV/Å and every other candidate is at least 10 times further off. The same check confirmed that the run of amendment A5 used the stage-two 2x2x2 model.
 
-## Fine-tuned models against DFT (part B)
+## Models against DFT (part B)
 
-Predictions in float64 on a CPU ([src/mlipft/ingest/models.py](../src/mlipft/ingest/models.py)). Metrics ([src/mlipft/dft/agreement.py](../src/mlipft/dft/agreement.py)):
+- **MACE models.** MACE-MP-0 and the four fine-tuned models, in float64 on a CPU ([src/mlipft/ingest/models.py](../src/mlipft/ingest/models.py)).
+- **MatterSim** (amendment A4). `mattersim` 1.2.3 with the checkpoint `mattersim-v1.0.0-1M` (sha256 `28b0b0b0…`), in float32 on a CPU, the precision of its MD runs ([ingest/mattersim_predict.py](../ingest/mattersim_predict.py), [src/mlipft/ingest/mattersim.py](../src/mlipft/ingest/mattersim.py)). Before use, its forces on four frames of each 416-atom MatterSim trajectory were recomputed: they match the stored forces to at most 0.0021 meV/Å (RMS), so it is the model of the July runs.
+
+Metrics ([src/mlipft/dft/agreement.py](../src/mlipft/dft/agreement.py)):
 
 - **Forces.** Error per Cartesian component, as RMSE and MAE, overall and per element. The softening slope is the least-squares slope through the origin of model force against DFT force.
-- **Energies.** The error per atom after subtracting the mean error over T22 for that model and label set (the offset over all 27 is a sensitivity check). The foundation's absolute energy error is not used, because its reference energies differ from those of the DFT data.
+- **Energies.** The error per atom after subtracting the mean error over T22 for that model and label set (the offset over all 27 is a sensitivity check). The absolute energy errors of the universal potentials are not used, because their reference energies differ from those of the DFT data.
 - **Pressures.** Diagnostic only; no model was trained on stress.
 - **Label-error floor.** The same measures for the Γ labels against the 2×2×2 labels, and the decomposition RMSE(m vs k222)² = RMSE(m vs Γ)² + floor² + cross term.
 - **Primary estimand.** The force RMSE against the 2×2×2 labels on H3. With three configurations, no confidence intervals or significance statements are given.
 
 ## Transport, model against model (part C)
 
-- **Runs compared.** The foundation (MACE-MP-0 production run) and the two fine-tuned MD runs, all at 416 atoms and 200 ps and all re-analysed in one environment.
+- **Runs compared.** The foundation (MACE-MP-0 production run) and the fine-tuned MD runs, all at 416 atoms and 200 ps and all re-analysed in one environment: the Gamma-label run (stage two), the July 2x2x2-label run (stage one) and the 2x2x2-label run of amendment A5 (stage two).
 - **Measures.** D ratios to the foundation at each temperature, and σ(300 K) and Eₐ of the weighted fits.
 - **Reading fixed in the analysis plan.** f = ln(σ_K/σ_G) / ln(σ_foundation/σ_G), the fraction of the fine-tuning slowdown recovered with the 2×2×2 labels:
   - f < 0.25: the k-point sampling of the labels does not explain the slowdown;
   - f > 0.75: it explains most of it;
   - otherwise partial;
   - if the two fine-tuned values differ by less than their combined 1-sigma uncertainty, the two runs are indistinguishable.
-- **Training-stage confound.** The Gamma-label run used the stage-two model and the 2x2x2-label run the stage-one model (see "Model identity"). On the three configurations held out by both fine-tunes, these two models differ in force error by about as much as the two stages of either fine-tune, so the comparison mixes label quality with training stage.
+- **Training stage (amendment A5).** In July the Gamma-label run used the stage-two model and the 2x2x2-label run the stage-one model (see "Model identity"), so the pre-registered reading mixes label quality with training stage. Amendment A5, committed before the new run started, added an MD run of the stage-two 2x2x2 model with the July settings and fixed three readings:
+  1. the same f with both runs at stage two (f2), the primary Part C reading from then on;
+  2. the stage at equal labels: kinisi D of the stage-two 2x2x2 run over the stage-one run at each temperature, and the ratio of their σ(300 K) (descriptive);
+  3. the new run against AIMD.
+  The pre-registered f, with the stage-one run, stays reported.
 - **Not tested here.** Two other possible causes of the slowdown cannot be tested with these data: both fine-tunes use the same pseudopotentials, and their training sets differ by only two configurations (22 and 24).
-- **Against AIMD.** The D of all three runs is also compared with AIMD at each temperature (see "AIMD reference").
+- **Against AIMD.** The D of every fine-tuned run is also compared with AIMD at each temperature (see "AIMD reference").
 - **Not compared with experiment.** The fine-tuned models are not compared with experiment.
 
 ## Cl-excess series (part D)

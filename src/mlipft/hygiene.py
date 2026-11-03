@@ -33,8 +33,8 @@ PRIVATE = {
     "home directory": re.compile("/" + "Users/[A-Za-z]"),
     "cluster path": re.compile("/" + r"(?:scratch/users|home/(?:users|svu)/|nfs/|app1/)"),
     "cluster group": re.compile("svu" + "users"),
-    "cluster host name": re.compile(r"(?:asp2a|aspire2a)[-.][A-Za-z0-9]|\." + r"nscc\.sg|" + "van" + r"da\b|"
-                                    + "std" + r"ct\b|" + "GN" + "-A40", re.I),
+    "cluster host name": re.compile(r"(?:asp" + r"2a|asp" + r"ire2a)[-.][A-Za-z0-9]|\." + "ns" + r"cc\.sg|"
+                                    + "van" + r"da\b|" + "std" + r"ct\b|" + "GN" + "-A40", re.I),
     "batch job id": re.compile(r"\b\d{7,8}\.pbs\d{3}\b|\b\d{6,8}\.[a-z0-9-]*" + "mgmt|" + r"\.o\d{6,8}\b"),
 }
 

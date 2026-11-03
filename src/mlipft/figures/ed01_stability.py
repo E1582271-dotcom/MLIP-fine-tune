@@ -1,15 +1,15 @@
 """Temperature, energy and pressure of every MD run (Extended Data, key "stability").
 
-a (hero), mean temperature minus the target for all 42 runs, with the standard error of the mean from
+a (hero), mean temperature minus the target for all 45 runs, with the standard error of the mean from
 5-ps blocks; b, relative temperature fluctuation std(T)/T against the canonical sqrt(2/(3N)); c, drift
 of the potential energy per atom; d, 0.5-ps block series of temperature, potential energy and
-pressure of the four 416-atom, 200-ps production runs at 1000 K; e, the statistics recomputed from the
-trajectories against the July run logs, for the 19 runs whose log survives; f, mean-squared
-displacement of Li, P, S and Cl in the four production runs at 1000 K.
+pressure of the five 416-atom, 200-ps production runs at 1000 K; e, the statistics recomputed from the
+trajectories against the run logs, for the 22 runs with a log (19 surviving July logs and the three runs
+of amendment A5); f, mean-squared displacement of Li, P, S and Cl in the five production runs at 1000 K.
 
 Encoding of a-c and e: colour, target temperature; marker shape, run type (``style.RUN_MARKERS``);
-fill, training stage (only the 2x2x2-label fine-tune, stage one, is open); a black outline around a
-marker in a-c, the July run log of that run survives.
+fill, training stage (only the July run of the 2x2x2-label fine-tune, stage one, is open); a black
+outline around a marker in a-c, a run log of that run exists.
 """
 from __future__ import annotations
 
@@ -34,28 +34,30 @@ WIDTH, HEIGHT = 183.0, 241.0
 THERMOSTAT = paths.RESULTS / "thermostat.csv"
 TIMESERIES = paths.MD / "timeseries.csv.gz"
 MSD = paths.MD / "msd.csv.gz"
+CROSS = paths.RESULTS / "cross_evaluation.csv"
 BLOCK_PS = 5.0  # blocks for the standard errors (ten 0.5-ps blocks)
 SERIES_TEMPERATURE = 1000  # temperature of the production time series in d and of the MSD in f
-PRODUCTION = tuple(s for s in C.PRODUCTION_SERIES if s not in common.PENDING_SERIES)
 SERIES_ORDER = ("mace_52_050", "mace_52_100", "mace_52_150", "mattersim_52_050", "mattersim_52_100",
                 "mattersim_52_150", "mace_416_200", "mattersim_416_200", "ftG_416_200", "ftK_416_200",
-                "clx000_416_150", "clx025_408_150", "clx050_400_150", "clx075_392_150")
+                "ftK2_416_200", "clx000_416_150", "clx025_408_150", "clx050_400_150", "clx075_392_150")
 TICKS = {"mace_52_050": "50 ps", "mace_52_100": "100 ps", "mace_52_150": "150 ps",
          "mattersim_52_050": "50 ps", "mattersim_52_100": "100 ps", "mattersim_52_150": "150 ps",
          "mace_416_200": "MACE-MP-0", "mattersim_416_200": "MatterSim", "ftG_416_200": "Gamma, stage 2",
-         "ftK_416_200": "2x2x2, stage 1", "clx000_416_150": "x = 0", "clx025_408_150": "x = 0.25",
-         "clx050_400_150": "x = 0.50", "clx075_392_150": "x = 0.75"}
+         "ftK_416_200": "2x2x2, stage 1", "ftK2_416_200": "2x2x2, stage 2", "clx000_416_150": "x = 0",
+         "clx025_408_150": "x = 0.25", "clx050_400_150": "x = 0.50", "clx075_392_150": "x = 0.75"}
 GROUPS = (("MACE-MP-0\n52 atoms", SERIES_ORDER[0:3]), ("MatterSim\n52 atoms", SERIES_ORDER[3:6]),
-          ("416 atoms\n200 ps", SERIES_ORDER[6:10]), ("Cl-excess\n150 ps", SERIES_ORDER[10:14]))
+          ("416 atoms\n200 ps", SERIES_ORDER[6:11]), ("Cl-excess\n150 ps", SERIES_ORDER[11:15]))
+A5_SERIES = tuple(s["id"] for s in C.SERIES if s["model"] == "ftK2")  # amendment A5: its run log is not a July log
 GROUP_GAP = 0.5
-GROUP_GAP_E, WIDE_SLOT = 0.6, 1.6  # panel e: gap between groups, slot width of the ~400-atom runs
+GROUP_GAP_E = 0.4  # panel e: gap between groups, in x units (a 52-atom run takes one unit)
+E_SLOTS = {"production": 1.3, "clexcess": 1.2}  # panel e: slot width of the ~400-atom runs, sized to their labels
 T_OFFSETS = dict(zip(C.TEMPERATURES, (-1.0 / 3.0, 0.0, 1.0 / 3.0)))  # equal spacing within and between series
-PRODUCTION_MODELS = {"mace_416_200": "foundation", "mattersim_416_200": "mattersim", "ftG_416_200": "ftG",
-                     "ftK_416_200": "ftK"}
-LOG_TICKS = {"mace_416_200": "MACE-MP-0", "mattersim_416_200": "MatterSim", "ftG_416_200": "Gamma,\nstage 2",
-             "ftK_416_200": "2x2x2,\nstage 1", "clx000_416_150": "x = 0", "clx025_408_150": "x = 0.25",
-             "clx050_400_150": "x = 0.50", "clx075_392_150": "x = 0.75"}
-D_LINES = {"ftK": (0, (3.0, 1.2))}  # d: the 2x2x2 model dashed, so that it reads apart from the Gamma one
+PRODUCTION_MODELS = {s: C.SERIES_BY_ID[s]["model"] for s in C.PRODUCTION_SERIES}  # series -> run family
+MD_MODELS = common.md_models(common.read(CROSS))  # run family -> model that drove it (ftK2 -> ftK_s2)
+LOG_TICKS = {"mace_416_200": "MACE-\nMP-0", "mattersim_416_200": "MatterSim", "ftG_416_200": "Gamma,\nstage 2",
+             "ftK_416_200": "2x2x2,\nstage 1", "ftK2_416_200": "2x2x2,\nstage 2", "clx000_416_150": "x = 0",
+             "clx025_408_150": "x = 0.25", "clx050_400_150": "x = 0.50", "clx075_392_150": "x = 0.75"}
+D_LINES = {"ftK": (0, (3.0, 1.2))}  # d: the stage-one 2x2x2 model dashed, so that it reads apart from stage two
 MARKER = 3.2  # marker diameter (pt) of a run in a-c and e
 HALO = 1.5  # the "run log survives" outline is this much wider than the marker (pt)
 KIND_LABELS = {"cell_52": "52 atoms", "production": "416 atoms, 200 ps", "clexcess": "Cl excess, 392-416 atoms"}
@@ -71,7 +73,6 @@ F_TOP, F_HEIGHT, F_GAP = 200.0, 31.0, 3.0
 
 def _load():
     thermo = common.read(THERMOSTAT)
-    thermo = thermo[~thermo["series"].isin(common.PENDING_SERIES)].reset_index(drop=True)
     series = common.read(TIMESERIES)
     return thermo, series
 
@@ -85,10 +86,10 @@ def _logged(thermo: pd.DataFrame) -> pd.Series:
 
 
 def _model_name(family: str) -> str:
-    """Name of the model that drove a run family: MACE-MP-0, MatterSim, 'Gamma, stage 2', '2x2x2, stage 1'."""
+    """Name of the model that drove a run family: MACE-MP-0, MatterSim, 'Gamma, stage 2', '2x2x2, stage 1', ..."""
     if family in style.UNIVERSAL_MODELS:
         return style.MODEL_LABELS[family]
-    return common.SHORT_LABELS[f"{family}_{style.MD_STAGE[family]}"]
+    return common.SHORT_LABELS[MD_MODELS[family]]
 
 
 # ------------------------------------------------------------------------------------- run encoding
@@ -114,7 +115,7 @@ def _run_style(series_id: str, temperature: int, size: float = MARKER, **overrid
 
 
 def _halo_style(marker: str, size: float = MARKER) -> dict:
-    """Black outline drawn around a run whose July run log survives."""
+    """Black outline drawn around a run with a run log (a surviving July log or one of amendment A5)."""
     return {"marker": marker, "markersize": size + HALO, "markeredgewidth": 0.45, "markeredgecolor": style.BLACK,
             "markerfacecolor": "none", "linestyle": "none"}
 
@@ -143,7 +144,7 @@ def _run_legend(ax, error_label: str) -> None:
                  Line2D([0], [0], **_halo_style("o"))),
                 Line2D([0], [0], marker="|", linestyle="none", markersize=4.6, markeredgewidth=0.6,
                        color=style.BLACK)]
-    labels += ["open: 2x2x2, stage 1", "July run log survives", error_label]
+    labels += ["open: 2x2x2, stage 1", "run log available", error_label]
     ax.legend(handles=handles, labels=labels, handler_map={tuple: HandlerTuple(ndivide=1)},
               loc="lower left", bbox_to_anchor=(0.0, 1.02), ncol=3, fontsize=style.SMALL, handletextpad=0.4,
               columnspacing=1.4, labelspacing=0.45, borderaxespad=0.0, handlelength=1.4)
@@ -287,7 +288,7 @@ def _panel_c(ax, thermo: pd.DataFrame, errors: pd.DataFrame, positions: dict[str
 
 
 def _panel_d(axes, series: pd.DataFrame) -> None:
-    runs = {s: C.run_id(s, SERIES_TEMPERATURE) for s in PRODUCTION}
+    runs = {s: C.run_id(s, SERIES_TEMPERATURE) for s in C.PRODUCTION_SERIES}
     rows = []
     for series_id, run in runs.items():
         frame = series[series["run_id"] == run].sort_values("time_ps")
@@ -328,7 +329,7 @@ def _panel_d(axes, series: pd.DataFrame) -> None:
     axes[-1].set_xlabel("Production time (ps)")
     handles = [Line2D([0], [0], color=style.MODEL_COLORS[PRODUCTION_MODELS[s]], lw=1.0,
                       ls=D_LINES.get(PRODUCTION_MODELS[s], "-"),
-                      label=_model_name(PRODUCTION_MODELS[s])) for s in PRODUCTION]
+                      label=_model_name(PRODUCTION_MODELS[s])) for s in C.PRODUCTION_SERIES]
     axes[0].legend(handles=handles, loc="lower left", bbox_to_anchor=(0.0, 1.02), ncol=2, fontsize=style.SMALL,
                    handlelength=1.8, handletextpad=0.4, columnspacing=1.2, labelspacing=0.35, borderaxespad=0.0)
     axes[2].text(0.99, 0.96, f"{SERIES_TEMPERATURE} K; thin, 0.5-ps blocks; thick, {BLOCK_PS:g}-ps blocks",
@@ -347,9 +348,9 @@ def _panel_e(axes, thermo: pd.DataFrame) -> None:
     groups, x, positions = [], 0.0, []
     previous = None
     for row in checked.itertuples():
-        family = row.series if row.n_atoms < 100 else ("production" if row.series in PRODUCTION
+        family = row.series if row.n_atoms < 100 else ("production" if row.series in C.PRODUCTION_SERIES
                                                         else "clexcess")
-        step = 1.0 if row.n_atoms < 100 else WIDE_SLOT
+        step = 1.0 if row.n_atoms < 100 else E_SLOTS[family]
         if previous is not None and family != previous:
             x += GROUP_GAP_E + step / 2
         elif previous is not None:
@@ -410,8 +411,8 @@ def _panel_e(axes, thermo: pd.DataFrame) -> None:
             ticks.append(f"{LOG_TICKS[row.series]}\n{row.temperature_K} K")
     bottom.set_xticks(positions, ticks)
     bottom.tick_params(axis="x", length=1.5, pad=1.5, labelsize=style.SMALL)
-    names = {"mace_52_050": "MACE-MP-0, 52 atoms\n50 ps", "mattersim_52_050": "MatterSim, 52 atoms\n50 ps",
-             "mattersim_52_100": "MatterSim, 52 atoms\n100 ps", "mace_52_150": "MACE-MP-0, 52 atoms\n150 ps",
+    names = {"mace_52_050": "MACE-MP-0\n52 atoms, 50 ps", "mattersim_52_050": "MatterSim\n52 atoms, 50 ps",
+             "mattersim_52_100": "MatterSim\n52 atoms, 100 ps", "mace_52_150": "MACE-MP-0\n52 atoms, 150 ps",
              "production": "416 atoms, 200 ps", "clexcess": "Cl-excess, 150 ps"}
     blend = bottom.get_xaxis_transform()
     line = transforms.offset_copy(blend, fig=bottom.figure, y=-21.0, units="points")
@@ -425,14 +426,14 @@ def _panel_e(axes, thermo: pd.DataFrame) -> None:
                          label="tolerance of protocol item 7 (one band per run)")]
     axes[0].legend(handles=handles, loc="lower left", bbox_to_anchor=(0.0, 1.02), fontsize=style.SMALL,
                    handletextpad=0.4, borderaxespad=0.0)
-    axes[0].text(1.0, 1.04, "recomputed from the trajectory minus the July run log", transform=axes[0].transAxes,
+    axes[0].text(1.0, 1.04, "recomputed from the trajectory minus the run log", transform=axes[0].transAxes,
                  ha="right", va="bottom", fontsize=style.SMALL)
     style.save_source(source, NAME, "e")
 
 
 def _panel_f(axes, msd: pd.DataFrame) -> None:
     rows = []
-    for index, (ax, series) in enumerate(zip(axes, PRODUCTION)):
+    for index, (ax, series) in enumerate(zip(axes, C.PRODUCTION_SERIES)):
         run = C.run_id(series, SERIES_TEMPERATURE)
         model = PRODUCTION_MODELS[series]
         frame = msd[msd["run_id"] == run].sort_values("lag_ps")
@@ -486,9 +487,10 @@ def make() -> list[Path]:
             for i in range(3)]
     _panel_e(ax_e, thermo)
 
-    f_width = (RIGHT - LEFT - 3 * F_GAP) / 4
+    n_f = len(C.PRODUCTION_SERIES)
+    f_width = (RIGHT - LEFT - (n_f - 1) * F_GAP) / n_f
     ax_f = [L.axes(LEFT + i * (f_width + F_GAP), F_TOP, f_width, F_HEIGHT, row="f",
-                   col="left" if i == 0 else f"f{i}") for i in range(4)]
+                   col="left" if i == 0 else f"f{i}") for i in range(n_f)]
     _panel_f(ax_f, msd)
     L.text(LEFT + (RIGHT - LEFT) / 2, F_TOP + F_HEIGHT + 4.6, "Lag time (ps)", ha="center", va="top")
 
@@ -532,31 +534,36 @@ def _caption() -> str:
                             f" {r.temperature_K} K" for r in failed.itertuples())
     failed_sizes = sorted(set(failed["n_atoms"]))
     failed_lengths = sorted(set(int(C.SERIES_BY_ID[s]["production_ps"]) for s in failed["series"]))
+    production = C.PRODUCTION_SERIES
+    n_production = len(production)
     p = {s: thermo.loc[thermo["run_id"] == C.run_id(s, SERIES_TEMPERATURE), "mean_P_GPa"].iloc[0]
-         for s in PRODUCTION}
-    p_text = _by_model({s: f"{p[s]:+.2f}" for s in PRODUCTION})
-    ts = series[series["run_id"].isin([C.run_id(s, SERIES_TEMPERATURE) for s in PRODUCTION])]
+         for s in production}
+    p_text = _by_model({s: f"{p[s]:+.2f}" for s in production})
+    ts = series[series["run_id"].isin([C.run_id(s, SERIES_TEMPERATURE) for s in production])]
     t_range = (ts["T_K"].min(), ts["T_K"].max())
     big_n = sorted(set(big["n_atoms"]))
-    msd_runs = msd[msd["run_id"].isin([C.run_id(s, SERIES_TEMPERATURE) for s in PRODUCTION])]
+    msd_runs = msd[msd["run_id"].isin([C.run_id(s, SERIES_TEMPERATURE) for s in production])]
     tail = msd_runs.sort_values("lag_ps").groupby("run_id").tail(1).set_index("run_id")
-    tails = {s: tail.loc[C.run_id(s, SERIES_TEMPERATURE)] for s in PRODUCTION}
+    tails = {s: tail.loc[C.run_id(s, SERIES_TEMPERATURE)] for s in production}
     max_lag = float(tail["lag_ps"].max())
 
-    li_min = min(tails[s]["msd_Li_A2"] for s in PRODUCTION)
-    p_max = max(tails[s]["msd_P_A2"] for s in PRODUCTION)
-    cl_max = max(tails[s]["msd_Cl_A2"] for s in PRODUCTION)
-    s_text = _by_model({s: f"{tails[s]['msd_S_A2']:.2f}" for s in PRODUCTION})
+    li_min = min(tails[s]["msd_Li_A2"] for s in production)
+    p_max = max(tails[s]["msd_P_A2"] for s in production)
+    cl_max = max(tails[s]["msd_Cl_A2"] for s in production)
+    s_text = _by_model({s: f"{tails[s]['msd_S_A2']:.2f}" for s in production})
     n_runs = len(thermo)
     n_series = thermo["series"].nunique()
+    n_a5_logs = int(checked["series"].isin(A5_SERIES).sum())
     return (
         registry.heading(KEY) + f"All {n_runs} runs ({n_series} series, each at 600, 800 and 1000 K; Langevin "
         "thermostat, 1 fs step); the series are those of " + registry.label("design", "c") + ". In a-c and e, "
         "colour is the target temperature, marker shape the run type (triangles, 52-atom cells; circles, the "
         "416-atom, 200-ps production runs; inverted triangles, the 392-416-atom Cl-excess runs of 150 ps), and "
-        "open markers are the runs of the 2x2x2-label fine-tune, whose MD used its stage-1 model (every other "
-        "model is filled). In a-c, a black outline marks the runs whose July run log survives "
-        f"({n_logged} of {n_runs}); the statistics of the other {n_runs - n_logged} come from the trajectory only. "
+        "open markers are the July runs of the 2x2x2-label fine-tune, whose MD used its stage-1 model; every "
+        "other run is filled, including the runs of its stage-2 model (protocol amendment A5). In a-c, a black "
+        f"outline marks the runs with a run log ({n_logged} of {n_runs}: the {n_logged - n_a5_logs} whose July "
+        f"log survives and the {n_a5_logs} runs of amendment A5); the statistics of the other "
+        f"{n_runs - n_logged} come from the trajectory only. "
         "Instantaneous temperature from the kinetic energy with 3N degrees of freedom; pressure -tr(stress)/3 + "
         "N k_B T / V. 'Gamma' and '2x2x2' are the MACE-MP-0 fine-tunes on the two DFT label sets; x is the Cl "
         "excess of Li(6-x)PS(5-x)Cl(1+x). "
@@ -576,14 +583,15 @@ def _caption() -> str:
         f"time over the production run. Error bars, standard error of that slope from {BLOCK_PS:g}-ps block "
         f"averages; {int((drift_z > 2).sum())} of {n_runs} drifts exceed two standard errors (largest "
         f"{frame['drift_meV_atom_ps'].abs().max():.3f} meV/atom/ps). "
-        f"**d**, Temperature, potential energy per atom (minus its run mean) and pressure of the four 416-atom, "
-        f"200-ps production runs at {SERIES_TEMPERATURE} K (n = 4 runs; colour, the model that drove the run; "
-        f"thick dashed line, 2x2x2, stage 1), as 0.5-ps block means (thin lines) and {BLOCK_PS:g}-ps block means "
+        f"**d**, Temperature, potential energy per atom (minus its run mean) and pressure of the 416-atom, "
+        f"200-ps production runs at {SERIES_TEMPERATURE} K (n = {n_production} runs; colour, the model that drove "
+        f"the run; thick dashed line, 2x2x2, stage 1), as 0.5-ps block means (thin lines) and {BLOCK_PS:g}-ps "
+        "block means "
         f"(thick lines); single runs, no error bars; temperature "
         f"{t_range[0]:.0f}-{t_range[1]:.0f} K; dashed lines, the target temperature and the run mean of the "
         f"energy. Mean pressure: {p_text} GPa. "
-        f"**e**, Statistics recomputed from the trajectories minus the values in the July run logs, for the "
-        f"n = {n_logged} runs whose log survives (single values, no error bars). Grey bands, the tolerance of "
+        f"**e**, Statistics recomputed from the trajectories minus the values in the run logs, for the "
+        f"n = {n_logged} runs with a log (single values, no error bars). Grey bands, the tolerance of "
         f"protocol item 7: |d mean T| <= "
         f"{R.THERMOSTAT_T_TOLERANCE_K[52]:g} K for 52 atoms and {R.THERMOSTAT_T_TOLERANCE_K[416]:g} K for 392-416 "
         f"atoms (the logs include one extra sample at step 0 and round to 0.1 K); mean energy and drift within one "
@@ -598,13 +606,14 @@ def _caption() -> str:
         " x 10^-3 meV/atom/ps. The logged fit also includes the production starting frame, which the trajectory "
         "does not store; in a 52-atom run this one end point moves the 50-ps slope by about 10^-3 meV/atom/ps. "
         "The check is reported as failed, as the rule states. "
-        f"**f**, Mean-squared displacement of Li, P, S and Cl in the four production runs at {SERIES_TEMPERATURE} "
-        "K (n = 4 runs, one per axes, titled with the model that drove it; averaged over all time origins and "
+        f"**f**, Mean-squared displacement of Li, P, S and Cl in the production runs at {SERIES_TEMPERATURE} "
+        f"K (n = {n_production} runs, one per axes, titled with the model that drove it; averaged over all time "
+        "origins and "
         "atoms of an element, centre-of-mass drift removed; no error bars). At the longest lag "
         f"({max_lag:g} ps, a single time origin) Li reaches at least {li_min:.0f} A^2, P at most {p_max:.2f} A^2 "
         f"and Cl at most {cl_max:.2f} A^2: the P framework and the Cl sublattice stay in place. S reaches {s_text} "
         "A^2; S moving further than P is consistent with reorientation of PS4 tetrahedra about fixed P. "
-        + common.sources([THERMOSTAT, TIMESERIES, MSD])
+        + common.sources([THERMOSTAT, TIMESERIES, MSD, CROSS])
     )
 
 

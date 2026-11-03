@@ -1,4 +1,5 @@
-model,md_model,series,labels,subset,element,n_configs,n_components,softening_slope,y_plot,temperature_K,kinisi_D_ratio_to_aimd,kinisi_D_ratio_rel_err,kinisi_D_ratio_err_abs
-foundation,foundation,mace_416_200,k222,H3,Li,3,216,0.855259,0.855259,1000,3.20763,0.187559,0.60162
-ftG,ftG_s2,ftG_416_200,k222,H3,Li,3,216,0.991877,0.988877,1000,1.75599,0.188796,0.331525
-ftK,ftK_s1,ftK_416_200,k222,H3,Li,3,216,0.99243,0.99543,1000,1.86464,0.188092,0.350724
+model,md_model,series,labels,subset,element,n_configs,n_components,softening_slope,temperature_K,kinisi_D_ratio_to_aimd,kinisi_D_ratio_rel_err,kinisi_D_ratio_err_abs
+foundation,foundation,mace_416_200,k222,H3,Li,3,216,0.855259,1000,3.20763,0.187559,0.60162
+mattersim,mattersim,mattersim_416_200,k222,H3,Li,3,216,1.00837,1000,1.93272,0.18478,0.357129
+ftG,ftG_s2,ftG_416_200,k222,H3,Li,3,216,0.991877,1000,1.75599,0.188796,0.331525
+ftK2,ftK_s2,ftK2_416_200,k222,H3,Li,3,216,0.981428,1000,1.66318,0.188226,0.313054

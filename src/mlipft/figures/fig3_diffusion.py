@@ -3,9 +3,10 @@
 a (hero), kinisi Li D against 1000/T of the 416-atom, 200-ps production runs of MACE-MP-0, MatterSim and
 the two fine-tunes, with AIMD (Deng et al. 2017) at 600-1200 K; b, kinisi D of each run divided by the
 AIMD value at 600, 800 and 1000 K, with the pymatgen ratio; c, Li mean-squared displacement at 600 K and
-1000 K with the two fit windows; d, Li force softening slope on H3 (against the 2x2x2 labels) of the three
-MACE-family MD models against their D ratio to AIMD at 1000 K (n = 3). The 52-atom runs and the second
-416-atom MACE-MP-0 run are in the sampling Extended Data figure; no measured value appears here.
+1000 K with the two fit windows; d, Li force softening slope on H3 (against the 2x2x2 labels) of the four
+MD models against their D ratio to AIMD at 1000 K (n = 4). The runs are those of ``common.MAIN_FAMILIES``
+(the fine-tunes at stage two, named without a stage). The 52-atom runs and the second 416-atom MACE-MP-0 run
+are in the sampling Extended Data figure; no measured value appears here.
 """
 from __future__ import annotations
 
@@ -32,18 +33,17 @@ MSD = paths.MD / "msd.csv.gz"
 AIMD = paths.REFERENCES / "aimd_deng2017" / "transport.csv"
 AIMD_MSD = paths.REFERENCES / "aimd_deng2017" / "msd.csv.gz"
 
-FAMILIES = ("foundation", "mattersim", "ftG", "ftK")  # run families in drawing order
+FAMILIES = common.MAIN_FAMILIES  # run families in drawing order
 CAPTION_NAMES = {"foundation": "MACE-MP-0", "mattersim": "MatterSim", "ftG": "Gamma fine-tune",
-                 "ftK": "2x2x2 fine-tune"}
+                 "ftK2": "2x2x2 fine-tune"}
 # Panel a: horizontal offsets (1000/T units) of the two fine-tunes, whose markers would otherwise overlap those of
 # MatterSim and the AIMD error bars; MACE-MP-0, MatterSim and AIMD sit at their true 1000/T.
-A_OFFSET = {"ftG": -0.02, "ftK": 0.02}
+A_OFFSET = {"ftG": -0.02, "ftK2": 0.02}
 A_MARKER = 3.4  # marker diameter (pt) in panel a
 A_ERROR = {"elinewidth": 0.6, "capsize": 1.0, "capthick": 0.6}
-B_OFFSET = {"foundation": -0.3, "mattersim": -0.1, "ftG": 0.1, "ftK": 0.3}  # category units, panel b
+B_OFFSET = {"foundation": -0.3, "mattersim": -0.1, "ftG": 0.1, "ftK2": 0.3}  # category units, panel b
 PYMATGEN_SHIFT = 0.07  # pymatgen bar to the right of the kinisi circle, category units, panel b
-C_ORDER = ("foundation", "mattersim", "ftK", "ftG")  # MSD curves, drawn in this order: fine-tunes on top
-D_OFFSET = {"ftG": -0.003, "ftK": 0.003}  # panel d: vertical offset of the two fine-tunes (equal slopes, 0.992)
+C_ORDER = ("foundation", "mattersim", "ftK2", "ftG")  # MSD curves, drawn in this order: fine-tunes on top
 MSD_TEMPERATURES = (600, 1000)
 RATIO_TEMPERATURE = 1000  # D ratio of panel d
 SOFTENING_LABELS, SOFTENING_SUBSET = "k222", "H3"
@@ -68,12 +68,6 @@ def _production() -> dict[str, str]:
     if set(out) != set(FAMILIES):
         raise ValueError(f"expected one production series per family {FAMILIES}, got {sorted(out)}")
     return {family: out[family] for family in FAMILIES}
-
-
-def _style_ids(cross: pd.DataFrame) -> dict[str, str]:
-    """Run family -> model id whose colour and fill draw it (MD models from ``drove_md``; MatterSim itself)."""
-    md = common.md_models(cross)
-    return {family: md.get(family, family) for family in FAMILIES}
 
 
 def _ratio(comparison: pd.DataFrame, series: str, temperature: int) -> pd.Series:
@@ -258,22 +252,23 @@ def _panel_c(axes, d: dict, production: dict[str, str]) -> Path:
     return style.save_source(source, NAME, "c")
 
 
-def _panel_d(ax, d: dict, production: dict[str, str], md: dict[str, str]) -> Path:
-    """Li softening slope (y) against the kinisi D ratio to AIMD (x, logarithmic) of the three MD models."""
+def _panel_d(ax, d: dict, production: dict[str, str], ids: dict[str, str]) -> Path:
+    """Li softening slope (y) against the kinisi D ratio to AIMD (x, logarithmic) of the four MD models."""
     rows = []
     ax.axvline(1.0, **style.UNITY_LINE)
-    for family, model_id in md.items():
+    for family in FAMILIES:
+        model_id = ids[family]
         soft = _softening(d["cross"], model_id)
         row = _ratio(d["comparison"], production[family], RATIO_TEMPERATURE)
         ratio, rel = row["kinisi_D_ratio_to_aimd"], row["kinisi_D_ratio_rel_err"]
         color = style.MODEL_COLORS[model_id]
-        y = soft["softening_slope"] + D_OFFSET.get(family, 0.0)
+        y = soft["softening_slope"]
         ax.errorbar(ratio, y, xerr=ratio * rel, fmt="none", ecolor=color, zorder=2, **ERROR)
         ax.plot(ratio, y, **common.model_style(model_id, size=3.4), zorder=3)
         rows.append({"model": family, "md_model": model_id, "series": production[family],
                      "labels": SOFTENING_LABELS, "subset": SOFTENING_SUBSET, "element": "Li",
                      "n_configs": int(soft["n_configs"]), "n_components": int(soft["n_components"]),
-                     "softening_slope": soft["softening_slope"], "y_plot": y, "temperature_K": RATIO_TEMPERATURE,
+                     "softening_slope": y, "temperature_K": RATIO_TEMPERATURE,
                      "kinisi_D_ratio_to_aimd": ratio, "kinisi_D_ratio_rel_err": rel,
                      "kinisi_D_ratio_err_abs": ratio * rel})
     ax.text(1.04, 0.04, "AIMD", transform=ax.get_xaxis_transform(), ha="left", va="bottom",
@@ -283,7 +278,7 @@ def _panel_d(ax, d: dict, production: dict[str, str], md: dict[str, str]) -> Pat
     ax.set_xscale("log")
     ax.set_xlim(0.85, 4.5)
     _log_ticks(ax, [1, 2, 3, 4], ["1", "2", "3", "4"], "x")
-    ax.set_ylim(0.84, 1.005)
+    ax.set_ylim(0.84, 1.024)
     ax.set_yticks([0.85, 0.90, 0.95, 1.00], ["0.85", "0.90", "0.95", "1.00"])
     ax.set_xlabel(f"Li D / D(AIMD), {RATIO_TEMPERATURE} K")
     ax.set_ylabel(f"Li softening slope, {SOFTENING_SUBSET} vs 2x2x2")
@@ -293,10 +288,8 @@ def _panel_d(ax, d: dict, production: dict[str, str], md: dict[str, str]) -> Pat
 def _legend(ax, ids: dict[str, str]) -> None:
     ax.set_xticks([])
     ax.set_yticks([])
-    labels = {"foundation": style.MODEL_LABELS["foundation"], "mattersim": style.MODEL_LABELS["mattersim"],
-              "ftG": f"{style.MODEL_LABELS['ftG']} (stage 2)", "ftK": f"{style.MODEL_LABELS['ftK']} (stage 1)"}
-    handles = [common.handle(common.model_style(ids[f], size=3.6, linestyle="-", linewidth=LINE_WIDTH), labels[f])
-               for f in FAMILIES]
+    handles = [common.handle(common.model_style(ids[f], size=3.6, linestyle="-", linewidth=LINE_WIDTH),
+                             style.MODEL_LABELS[f]) for f in FAMILIES]
     handles.append(common.handle(common.aimd_style(size=3.6, linestyle="-", linewidth=LINE_WIDTH),
                                  "AIMD (Deng et al. 2017)"))
     ax.legend(handles=handles, loc="center left", ncol=len(handles), fontsize=style.FONT_SIZE, handlelength=2.0,
@@ -309,8 +302,7 @@ def _legend(ax, ids: dict[str, str]) -> None:
 def make() -> list[Path]:
     d = _load()
     production = _production()
-    ids = _style_ids(d["cross"])
-    md = common.md_models(d["cross"])
+    ids = common.main_models(d["cross"])
     fig, L = common.new_figure(WIDTH, HEIGHT)
 
     _legend(L.axes(14.0, 1.5, 167.0, 6.0, frame="none"), ids)
@@ -323,7 +315,7 @@ def make() -> list[Path]:
     top2, h2 = 93.0, 42.0
     ax_c = [L.axes(14.0, top2, 46.5, h2, row="2", col="left"), L.axes(63.5, top2, 46.5, h2, row="2")]
     ax_d = L.axes(126.0, top2, 55.0, h2, row="2", col="right")
-    sources += [_panel_c(ax_c, d, production), _panel_d(ax_d, d, production, md)]
+    sources += [_panel_c(ax_c, d, production), _panel_d(ax_d, d, production, ids)]
 
     L.letter(ax_a, "a", 4.0, top1 - 1.0)
     L.letter(ax_b, "b", 115.0, top1 - 1.0)
@@ -338,7 +330,7 @@ def make() -> list[Path]:
 def _caption() -> str:
     d = _load()
     production = _production()
-    md = common.md_models(d["cross"])
+    ids = common.main_models(d["cross"])
     aimd = d["aimd"].set_index("temperature_K")
     caged = common.caged_temperatures(d["aimd"])
     transport = d["transport"].set_index("run_id")
@@ -363,24 +355,23 @@ def _caption() -> str:
         f"{names[f]} {common.sig(transport.loc[C.run_id(production[f], t), 'msd_loglog_slope_fit_window'])}"
         for f in FAMILIES) + f", AIMD {common.sig(aimd.loc[t, 'msd_loglog_slope_fit_window'])}"
         for t in MSD_TEMPERATURES}
-    soft = {f: _softening(d["cross"], m) for f, m in md.items()}
+    soft = {f: _softening(d["cross"], ids[f]) for f in FAMILIES}
     soft_text = ", ".join(f"{names[f]} {common.sig(soft[f]['softening_slope'])} and "
-                          f"{common.sig(ratio(f, RATIO_TEMPERATURE))}" for f in md)
+                          f"{common.sig(ratio(f, RATIO_TEMPERATURE))}" for f in FAMILIES)
     n_configs, n_components = int(soft["foundation"]["n_configs"]), int(soft["foundation"]["n_components"])
-    stage = {"s1": "stage-1", "s2": "stage-2"}
     return (
         registry.heading(KEY)
         + "The reference is AIMD of the same ordered Li6PS5Cl cell (Cl on 4a, free S on 4c) by Deng et al., Chem. "
         "Mater. 29, 281 (2017), re-analysed with the estimators and settings of the MLIP runs "
         f"({registry.label('aimd')}). MLIP runs: {int(first['n_atoms'])} atoms, {length} ps per temperature, "
         f"a = {a_mlip:.2f} A; AIMD: {n_aimd} atoms, {aimd_length} ps, a = {a_aimd:.2f} A. One trajectory per model "
-        "and temperature. Every D is the kinisi estimate (seed 0, fitted from a lag of "
-        f"{C.KINISI_START_FRACTION * 100:g} % of each run onwards); error bars, +/- 1 posterior s.d. The Gamma-label "
-        f"fine-tune ran MD with its {stage[md['ftG'].split('_')[1]]} model (filled markers) and the 2x2x2-label "
-        f"fine-tune with its {stage[md['ftK'].split('_')[1]]} model (open markers). "
+        "and temperature. Both fine-tuned runs use the stage-two models (the 2x2x2 run is that of amendment A5, "
+        "protocol/amendments.md; the July run of the stage-one 2x2x2 model is compared in "
+        f"{registry.label('finetune', 'c')}). Every D is the kinisi estimate (seed 0, fitted from a lag of "
+        f"{C.KINISI_START_FRACTION * 100:g} % of each run onwards); error bars, +/- 1 posterior s.d. "
         f"**a**, Li D against 1000/T of the production runs at {', '.join(map(str, C.TEMPERATURES[:-1]))} and "
         f"{C.TEMPERATURES[-1]} K (circles joined by lines; so that markers do not overlap, the Gamma and 2x2x2 "
-        f"fine-tuned points are offset horizontally by {A_OFFSET['ftG']:+g} and {A_OFFSET['ftK']:+g} in 1000/T, "
+        f"fine-tuned points are offset horizontally by {A_OFFSET['ftG']:+g} and {A_OFFSET['ftK2']:+g} in 1000/T, "
         "while MACE-MP-0, MatterSim and AIMD points sit at their true 1000/T) "
         f"and of AIMD at {int(aimd.index.min())}-{int(aimd.index.max())} K (black squares; {aimd_d} cm2/s). "
         f"At {caged_text} the AIMD Li MSD is almost flat in the fit window (log-log slope "
@@ -396,14 +387,12 @@ def _caption() -> str:
         "each panel gives the log-log slope in the fit window (1 for diffusive motion); at "
         f"{MSD_TEMPERATURES[0]} K: {slope_text[MSD_TEMPERATURES[0]]}; at {MSD_TEMPERATURES[1]} K: "
         f"{slope_text[MSD_TEMPERATURES[1]]}. "
-        "**d**, Li force softening slope of the three MACE-family models that ran MD (least-squares slope through "
+        "**d**, Li force softening slope of each of the four models (least-squares slope through "
         "the origin of model against 2x2x2 DFT Li force components on the "
         f"{n_configs} configurations not trained on by either fine-tune, {SOFTENING_SUBSET}, which are the "
-        f"validation configurations of both; {n_components} components) against their kinisi D ratio to AIMD at "
+        f"validation configurations of both; {n_components} components) against its kinisi D ratio to AIMD at "
         f"{RATIO_TEMPERATURE} K (logarithmic axis; error bars as in b; the slope is a single value without error "
-        f"bar). Slope and ratio: {soft_text}. The two fine-tuned points have the same slope to two decimals and are "
-        f"offset vertically by {D_OFFSET['ftG']:+g} (Gamma) and {D_OFFSET['ftK']:+g} (2x2x2) so that their error "
-        f"bars do not cross. n = {len(md)} models, no fit. "
+        f"bar). Slope and ratio: {soft_text}. n = {len(FAMILIES)} models, no fit. "
         f"The 52-atom runs and a second 416-atom MACE-MP-0 run are in {registry.label('sampling')}. "
         + common.sources([TRANSPORT, MSD, AIMD, AIMD_MSD, AIMD_COMPARISON, CROSS])
     )

@@ -87,20 +87,21 @@ Diagnostic fixed in `protocol/analysis_plan.md` (reported, never used to exclude
 | clx000_416_150_600K | 0.74 | 7.66e-6 | 6.81e-6 |
 
 
-## B. Fine-tuned models against DFT
+## B. Models against DFT
 
 Label-error floor (Gamma-point labels against 2x2x2 labels, all 27 configurations): force RMSE 17.2 meV/A (Li 8.38, P 20.3, S 23.7, Cl 13.9); energy after removing the offset 0.43 meV/atom (the mean offset is 5.1 meV/atom); pressure 0.47 kbar.
 
 
-On the three configurations held out by both fine-tunes (H3):
+On the three configurations held out by both fine-tunes (H3; MatterSim: amendment A4):
 
 | Model | Drove an MD run | Force RMSE vs 2x2x2 (meV/A) | vs Gamma (meV/A) | Softening slope | Energy RMSE, offset removed (meV/atom) | Pressure RMSE (kbar) |
 |---|---|---|---|---|---|---|
 | MACE-MP-0 (foundation) | yes | 216 | 220 | 0.812 | 8.2 | 0.70 |
-| Fine-tuned, Gamma labels, stage one | no | 72.8 | 73.8 | 0.983 | 1.6 | 4.6 |
+| MatterSim | yes | 100 | 100 | 0.980 | 0.82 | 1.0 |
 | Fine-tuned, Gamma labels, stage two | yes | 59.3 | 60.3 | 0.992 | 1.7 | 4.1 |
+| Fine-tuned, 2x2x2 labels, stage two | yes | 57.1 | 60.3 | 0.988 | 1.8 | 4.4 |
+| Fine-tuned, Gamma labels, stage one | no | 72.8 | 73.8 | 0.983 | 1.6 | 4.6 |
 | Fine-tuned, 2x2x2 labels, stage one | yes | 70.3 | 73.2 | 0.987 | 1.4 | 4.0 |
-| Fine-tuned, 2x2x2 labels, stage two | no | 57.1 | 60.3 | 0.988 | 1.8 | 4.4 |
 
 
 Force RMSE per element against 2x2x2 labels on H3 (meV/A):
@@ -108,7 +109,9 @@ Force RMSE per element against 2x2x2 labels on H3 (meV/A):
 | Model | Li | P | S | Cl |
 |---|---|---|---|---|
 | MACE-MP-0 (foundation) | 132 | 480 | 231 | 74.9 |
+| MatterSim | 59.2 | 176 | 121 | 70.7 |
 | Fine-tuned, Gamma labels, stage two | 36.0 | 117 | 67.6 | 36.0 |
+| Fine-tuned, 2x2x2 labels, stage two | 35.2 | 118 | 62.7 | 35.7 |
 | Fine-tuned, 2x2x2 labels, stage one | 45.5 | 148 | 75.8 | 34.1 |
 | Label floor (Gamma vs 2x2x2) | 8.05 | 19.3 | 22.5 | 13.5 |
 
@@ -146,7 +149,7 @@ Reading fixed in `protocol/analysis_plan.md`: f = -0.22, ln(sigma_K / sigma_G) =
 At equal training stage (amendment A5: both runs stage two; the primary Part C reading): f = -0.20, ln(sigma_K / sigma_G) = -0.51 ± 0.54: **indistinguishable**.
 
 
-Training stage at equal labels (amendment A5, descriptive): D of the stage-two 2x2x2 run divided by D of the stage-one run; sigma(300 K) ratio 1.0 (ln ratio uncertainty 0.50).
+Training stage at equal labels (amendment A5, descriptive): D of the stage-two 2x2x2 run divided by D of the stage-one run; sigma(300 K) ratio 1.04 (ln ratio uncertainty 0.50).
 
 | Model | T (K) | pymatgen | kinisi |
 |---|---|---|---|

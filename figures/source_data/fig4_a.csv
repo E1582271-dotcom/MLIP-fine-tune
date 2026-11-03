@@ -1,5 +1,6 @@
-row,model,series,md_model,stage,sigma300_mS_cm,sigma300_min_mS_cm,sigma300_max_mS_cm,Ea_eV,Ea_err_eV,f_recovered_fraction,ln_sigma_ftK_over_ftG,ln_sigma_ftK_over_ftG_err,reading,sigma300_at_f_0.25_mS_cm,sigma300_at_f_0.75_mS_cm
-fit,foundation,mace_416_200,foundation,,5.53612,4.18023,7.33179,0.265581,0.0117987,,,,,,
-fit,ftG,ftG_416_200,ftG_s2,2,0.453579,0.308501,0.666881,0.33489,0.0156478,,,,,,
-fit,ftK,ftK_416_200,ftK_s1,1,0.260328,0.185668,0.36501,0.359863,0.0138529,,,,,,
-reading,reading,,,,,,,,,-0.221923,-0.555225,0.512638,not explained,0.847795,2.96188
+row,model,series,md_model,stage,sigma300_mS_cm,sigma300_min_mS_cm,sigma300_max_mS_cm,Ea_eV,Ea_err_eV,primary,f_recovered_fraction,ln_sigma_ftK_over_ftG,ln_sigma_ftK_over_ftG_err,reading,sigma300_at_f_0.25_mS_cm,sigma300_at_f_0.75_mS_cm
+fit,foundation,mace_416_200,foundation,,5.53612,4.18023,7.33179,0.265581,0.0117987,,,,,,,
+fit,ftG,ftG_416_200,ftG_s2,2,0.453579,0.308501,0.666881,0.33489,0.0156478,,,,,,,
+fit,ftK2,ftK2_416_200,ftK_s2,2,0.271877,0.187155,0.394953,0.357093,0.0151192,,,,,,,
+reading_A5,reading_A5,ftK2_416_200,,,,,,,,True,-0.204573,-0.511817,0.53666,indistinguishable,0.847795,2.96188
+reading,reading,ftK_416_200,,,,,,,,False,-0.221923,-0.555225,0.512638,not explained,0.847795,2.96188

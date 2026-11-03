@@ -1,7 +1,7 @@
 model,md_model,reference,temperature_K,x,x_pymatgen,kinisi_D_ratio,kinisi_D_ratio_err,pymatgen_D_ratio
 ftG,ftG_s2,foundation,600,-0.18,-0.04,0.160724,0.0386062,0.323743
-ftK,ftK_s1,foundation,600,0.18,0.32,0.160465,0.0293641,0.281248
+ftK2,ftK_s2,foundation,600,0.18,0.32,0.129258,0.0293969,0.252109
 ftG,ftG_s2,foundation,800,0.82,0.96,0.406811,0.0470711,0.434941
-ftK,ftK_s1,foundation,800,1.18,1.32,0.511183,0.0616728,0.508337
+ftK2,ftK_s2,foundation,800,1.18,1.32,0.567828,0.0646942,0.559153
 ftG,ftG_s2,foundation,1000,1.82,1.96,0.547442,0.0506673,0.543134
-ftK,ftK_s1,foundation,1000,2.18,2.32,0.581314,0.052962,0.579386
+ftK2,ftK_s2,foundation,1000,2.18,2.32,0.518508,0.047383,0.525572

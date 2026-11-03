@@ -8,8 +8,12 @@ QA checks and writes the figure.
 Every marker of a model, of AIMD or of a measured value is drawn through ``model_style`` /
 ``model_scatter`` / ``aimd_style`` / ``context_style``, which apply the vocabulary of ``style``:
 colour by model, fill by training stage, shape by run type. The models that drove the MD runs come
-from the ``drove_md`` column of the cross-evaluation table (``primary_models``, ``md_models``), not
-from this file.
+from the ``drove_md`` column of the cross-evaluation table (``primary_models``, ``md_models``,
+``main_models``), not from this file.
+
+Run families are the ``model`` field of the series catalogue: foundation and mattersim (the universal
+potentials), ftG (Gamma labels), ftK (2x2x2 labels, the July run, stage one) and ftK2 (2x2x2 labels, the
+run of amendment A5, stage two). The main figures show ``MAIN_FAMILIES``.
 """
 from __future__ import annotations
 
@@ -26,16 +30,19 @@ from matplotlib.colors import to_hex, to_rgb
 from matplotlib.lines import Line2D
 
 from .. import paths
-from ..constants import TEMPERATURES
+from ..constants import SERIES_BY_ID, TEMPERATURES
 from . import qa, style
 
-MODEL_ORDER = ("foundation", "ftG_s2", "ftK_s1", "ftG_s1", "ftK_s2")
-SHORT_LABELS = {"foundation": "MACE-MP-0", "ftG_s1": "Gamma, stage 1", "ftG_s2": "Gamma, stage 2",
-                "ftK_s1": "2x2x2, stage 1", "ftK_s2": "2x2x2, stage 2"}
+MODEL_ORDER = ("foundation", "ftG_s2", "ftK_s2", "ftG_s1", "ftK_s1")  # MACE-MP-0 and its fine-tunes
+SHORT_LABELS = {"foundation": "MACE-MP-0", "mattersim": "MatterSim", "ftG_s1": "Gamma, stage 1",
+                "ftG_s2": "Gamma, stage 2", "ftK_s1": "2x2x2, stage 1", "ftK_s2": "2x2x2, stage 2"}
 LABEL_SET_NAMES = {"gamma": "Gamma", "k222": "2x2x2"}
 ELEMENTS = ("Li", "P", "S", "Cl")
-RUN_FAMILIES = ("foundation", "ftG", "ftK")  # MD runs of MACE-MP-0 and of the two fine-tunes
-PENDING_SERIES = ("ftK2_416_200",)  # in the tables (amendment A5), not yet drawn: the figures skip it for now
+RUN_FAMILIES = ("foundation", "ftG", "ftK", "ftK2")  # MD runs of MACE-MP-0 and of its fine-tunes
+# The main figures: the universal potentials and the stage-two fine-tunes, named without a stage.
+MAIN_FAMILIES = ("foundation", "mattersim", "ftG", "ftK2")
+MAIN_SHORT_LABELS = {"foundation": "MACE-MP-0", "mattersim": "MatterSim", "ftG": "Fine-tuned, Gamma",
+                     "ftK2": "Fine-tuned, 2x2x2"}
 CAGED_SLOPE = 0.25  # AIMD Li MSD log-log slope in the fit window below which the Li ions are caged
 MARKER_SIZE = 3.4  # default marker diameter (pt) of the style helpers
 _CONFIG = re.compile(r"T(\d+)_f(\d+)")
@@ -79,21 +86,23 @@ def naming_sentence(configs: pd.DataFrame) -> str:
 
 
 def primary_models(cross: pd.DataFrame) -> list[str]:
-    """Models that drove an MD run (non-empty ``drove_md``), in ``MODEL_ORDER``."""
+    """MACE models (``MODEL_ORDER``) that drove an MD run (non-empty ``drove_md``), in that order; MatterSim,
+    which also drove runs, is not among them."""
     drove = set(cross.loc[cross["drove_md"].fillna("").astype(str) != "", "model"])
     return [model for model in MODEL_ORDER if model in drove]
 
 
 def md_models(cross: pd.DataFrame) -> dict[str, str]:
-    """Run family -> id of the model that drove its MD run, from the ``drove_md`` column.
+    """Run family -> id of the model that drove its MD run, from the ``drove_md`` column (the family is the
+    catalogue ``model`` of the series it drove).
 
-    For the committed tables: ``{"foundation": "foundation", "ftG": "ftG_s2", "ftK": "ftK_s1"}``. MatterSim
-    also drove runs but is not a MACE run family: the figures draw it as itself.
+    For the committed tables: ``{"foundation": "foundation", "ftG": "ftG_s2", "ftK": "ftK_s1", "ftK2": "ftK_s2"}``.
+    MatterSim also drove runs but is not a MACE run family: the figures draw it as itself.
     """
-    drove = cross.loc[cross["drove_md"].fillna("").astype(str) != "", "model"].unique()
+    drove = cross.loc[cross["drove_md"].fillna("").astype(str) != "", ["model", "drove_md"]].drop_duplicates()
     out: dict[str, str] = {}
-    for model in drove:
-        family = str(model).split("_")[0]
+    for model, series in drove.itertuples(index=False):
+        family = SERIES_BY_ID[series]["model"]
         if family not in RUN_FAMILIES and family in style.UNIVERSAL_MODELS:
             continue
         if out.get(family, model) != model:
@@ -102,6 +111,16 @@ def md_models(cross: pd.DataFrame) -> dict[str, str]:
     if set(out) != set(RUN_FAMILIES):
         raise ValueError(f"expected one MD model per run family {RUN_FAMILIES}, got {sorted(out)}")
     return {family: out[family] for family in RUN_FAMILIES}
+
+
+def main_models(cross: pd.DataFrame) -> dict[str, str]:
+    """``MAIN_FAMILIES`` -> model id: MatterSim as itself, the MACE families from ``md_models``.
+
+    For the committed tables: ``{"foundation": "foundation", "mattersim": "mattersim", "ftG": "ftG_s2",
+    "ftK2": "ftK_s2"}``.
+    """
+    md = md_models(cross)
+    return {family: md.get(family, family) for family in MAIN_FAMILIES}
 
 
 def caged_temperatures(aimd: pd.DataFrame, threshold: float = CAGED_SLOPE) -> tuple[int, ...]:
@@ -117,7 +136,7 @@ def caged_temperatures(aimd: pd.DataFrame, threshold: float = CAGED_SLOPE) -> tu
 def filled(model: str) -> bool:
     """Whether the model's markers are filled: universal potentials and stage two filled, stage one open.
 
-    Accepts model ids (``ftG_s1``) and run families (``ftG``, ``ftK``: the stage in ``style.MD_STAGE``).
+    Accepts model ids (``ftG_s1``) and run families (``ftG``, ``ftK``, ``ftK2``: the stage in ``style.MD_STAGE``).
     """
     if model in style.UNIVERSAL_MODELS:
         return True

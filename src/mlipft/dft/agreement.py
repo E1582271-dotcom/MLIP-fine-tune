@@ -24,7 +24,7 @@ ELEMENTS = ("Li", "P", "S", "Cl")
 SUBSETS = ("H3", "H2", "T22", "All27")
 OWN = {"ftG_s1": ("gamma", "ftG"), "ftG_s2": ("gamma", "ftG"), "ftK_s1": ("k222", "ftK"), "ftK_s2": ("k222", "ftK")}
 DROVE_MD = {"foundation": "mace_416_200", "mattersim": "mattersim_416_200", "ftG_s2": "ftG_416_200",
-            "ftK_s1": "ftK_416_200"}
+            "ftK_s1": "ftK_416_200", "ftK_s2": "ftK2_416_200"}  # ftK_s2: the run of amendment A5
 
 
 def load() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:

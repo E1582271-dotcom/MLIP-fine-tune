@@ -2,25 +2,25 @@ kind,figure,title,text,x0_mm,y0_mm,x1_mm,y1_mm
 step,,Structure,Li6PS5Cl; 52 atoms (a); 416 atoms (2x2x2),0,1,18.5,14.5
 step,,"MD, universal potentials","MACE-MP-0 small (foundation); MatterSim; 52 atoms: 50, 100, 150 ps; 416 atoms, 200 ps; 600, 800, 1000 K",22.8,1,95,14.5
 step,,AIMD of the same ordered cell,Deng et al. 2017; 52 atoms; a = 10.10 Å; 600-1200 K; 100 ps per T; Ext. Data Fig. 8,100,1,122,35.5
-step,,Cl excess,Li6-xPS5-xCl1+x; x = 0-0.75; MACE-MP-0; 392-416 atoms; 150 ps; Ext. Data Fig. 9,0,21,18.5,57
+step,,Cl excess,Li6-xPS5-xCl1+x; x = 0-0.75; MACE-MP-0; 392-416 atoms; 150 ps; Ext. Data Fig. 9,0,21,18.5,59.5
 step,,27 configurations,frames 100-900; 9 per temperature,27,21,44,35.5
 step,,DFT labels,"QE 7.1, PBE; Gamma point; 2x2x2 k-points",47.6,21,64.6,35.5
 step,,Fine-tunes of MACE-MP-0,Gamma labels; 2x2x2 labels,68.2,21,95,35.5
-step,,Fine-tuned MD,"Gamma labels (stage 2); 2x2x2 labels (stage 1); 416 atoms, 200 ps; 600, 800, 1000 K",71.6,42,95,57
-comparison,Fig. 2,Against DFT labels,forces and energies; MACE-MP-0 and both fine-tunes; held-out configurations,27,42,64.6,57
-comparison,Fig. 3,Against AIMD,Li D at 600-1000 K; no extrapolation; 416-atom runs of; all four models; 52-atom runs:; Ext. Data Fig. 4g,100,42,122,76
-comparison,Fig. 4,Fine-tuned against foundation,"fine-tuned MD against MACE-MP-0 MD; pre-registered reading; same MD protocol; 416 atoms, 200 ps, 600-1000 K",27,63.5,95,76
+step,,Fine-tuned MD,"Gamma labels; 2x2x2 labels; + 2x2x2, stage 1: Fig. 4c; 416 atoms, 200 ps; 600, 800, 1000 K",71.6,42,95,59.5
+comparison,Fig. 2,Against DFT labels,"forces and energies; MACE-MP-0, MatterSim and; both fine-tunes; held-out configurations",27,42,64.6,59.5
+comparison,Fig. 3,Against AIMD,Li D at 600-1000 K; no extrapolation; 416-atom runs of; all four models; 52-atom runs:; Ext. Data Fig. 4g,100,42,122,78.5
+comparison,Fig. 4,Fine-tuned against foundation,fine-tuned MD against MACE-MP-0 MD; labels at equal training stage (A5); training stage at equal labels; readings fixed in advance,27,66,95,78.5
 arrow,,,"(18.5, 7.75) -> (22.8, 7.75)",18.5,7.75,22.8,7.75
 arrow,,,"(9.25, 14.5) -> (9.25, 21)",9.25,14.5,9.25,21
 arrow,,"MACE-MP-0, 52 atoms, 50 ps","(35.5, 14.5) -> (35.5, 21)",35.5,14.5,35.5,21
 arrow,,,"(44, 28.25) -> (47.6, 28.25)",44,28.25,47.6,28.25
 arrow,,,"(64.6, 28.25) -> (68.2, 28.25)",64.6,28.25,68.2,28.25
 arrow,,,"(56.1, 35.5) -> (56.1, 42)",56.1,35.5,56.1,42
-arrow,,,"(69.8, 35.5) -> (69.8, 49.5) -> (64.6, 49.5)",69.8,35.5,64.6,49.5
+arrow,,,"(69.8, 35.5) -> (69.8, 50.75) -> (64.6, 50.75)",69.8,35.5,64.6,50.75
 arrow,,,"(83.3, 35.5) -> (83.3, 42)",83.3,35.5,83.3,42
 arrow,,,"(111, 35.5) -> (111, 42)",111,35.5,111,42
 arrow,,,"(95, 9.15) -> (97.5, 9.15) -> (97.5, 45) -> (100, 45)",95,9.15,100,45
 arrow,,,"(95, 51) -> (100, 51)",95,51,100,51
-arrow,,,"(83.3, 57) -> (83.3, 63.5)",83.3,57,83.3,63.5
-arrow,,,"(24.6, 14.5) -> (24.6, 69.75) -> (27, 69.75)",24.6,14.5,27,69.75
-note,,"Every model is compared with DFT: forces with the DFT labels, Li diffusion with AIMD of the same ordered cell.",,0,77.5,122,84
+arrow,,,"(83.3, 59.5) -> (83.3, 66)",83.3,59.5,83.3,66
+arrow,,,"(24.6, 14.5) -> (24.6, 72.25) -> (27, 72.25)",24.6,14.5,27,72.25
+note,,"Every model is compared with DFT: forces with the DFT labels, Li diffusion with AIMD of the same ordered cell.",,0,80,122,86.5

@@ -1,5 +1,5 @@
-model,family,stage,drove_md,labels,subset,element,n_configs,n_components,x,force_rmse_meV_A,within_stage_diff_ftG_minus_ftK_meV_A,between_stage_diff_s2_minus_s1_meV_A
-ftG_s1,ftG,1,False,k222,H3,all,3,468,1,72.8188,2.48769,-13.5294
-ftG_s2,ftG,2,True,k222,H3,all,3,468,2,59.2894,2.19318,-13.5294
-ftK_s1,ftK,1,True,k222,H3,all,3,468,1,70.3311,2.48769,-13.2349
-ftK_s2,ftK,2,False,k222,H3,all,3,468,2,57.0962,2.19318,-13.2349
+row,model,md_model,reference,reference_md_model,temperature_K,x,x_pymatgen,x_reference,kinisi_D_ratio,kinisi_D_ratio_err,pymatgen_D_ratio,sigma300_ratio_stage2_over_stage1,ln_sigma_stage2_over_stage1_err,sigma300_ratio_min,sigma300_ratio_max
+D,ftK2,ftK_s2,ftK,ftK_s1,600,0.05,0.19,-0.17,0.805521,0.219355,0.896396,,,,
+D,ftK2,ftK_s2,ftK,ftK_s1,800,1.05,1.19,0.83,1.11081,0.126536,1.09996,,,,
+D,ftK2,ftK_s2,ftK,ftK_s1,1000,2.05,2.19,1.83,0.891959,0.0824812,0.90712,,,,
+sigma300,ftK2,ftK_s2,ftK,ftK_s1,,,,,,,,1.04436,0.503656,0.631127,1.72817

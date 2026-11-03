@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](pyproject.toml)
 
-The calibration project of a computational portfolio on sulfide solid electrolytes. Two universal potentials (MACE-MP-0 small and MatterSim) and two fine-tunes of MACE-MP-0 drive molecular dynamics of the argyrodite Li<sub>6</sub>PS<sub>5</sub>Cl, 42 trajectories in all. Every model is judged against DFT:
+The calibration project of a computational portfolio on sulfide solid electrolytes. Two universal potentials (MACE-MP-0 small and MatterSim) and two fine-tunes of MACE-MP-0 drive molecular dynamics of the argyrodite Li<sub>6</sub>PS<sub>5</sub>Cl, 45 trajectories in all. Every model is judged against DFT:
 
 - **Li diffusion** against AIMD of the same ordered cell (Deng et al. 2017), at the simulated temperatures.
 - **Forces and energies** against two sets of DFT labels (Γ point and 2×2×2 k-points).
@@ -14,24 +14,25 @@ The calibration project of a computational portfolio on sulfide solid electrolyt
 
 Measured conductivities are of S/Cl-disordered polycrystals, not of the ordered cell simulated here, so they appear only as context.
 
-![Fig. 1: the 52-atom ordered Li6PS5Cl cell, the study design (forces against DFT labels, Li diffusion against AIMD, fine-tuned against foundation) and the 42 MD runs](figures/main/fig1_design.png)
+![Fig. 1: the 52-atom ordered Li6PS5Cl cell, the study design (forces against DFT labels, Li diffusion against AIMD, fine-tuned against foundation) and the 45 MD runs](figures/main/fig1_design.png)
 
 ## Findings
 
-- **Against AIMD, MACE-MP-0 diffuses Li 3 to 5 times too fast; MatterSim and both fine-tunes are within about 2 times.** These are kinisi D ratios at 800 and 1000 K:
+- **Against AIMD, MACE-MP-0 diffuses Li 3 to 5 times too fast; MatterSim and both fine-tunes 1.7 to 2.9 times.** These are kinisi D ratios at 800 and 1000 K:
   - MACE-MP-0: 5.1 and 3.2;
   - MatterSim: 1.9 and 1.9;
   - fine-tuned on Γ-point labels: 2.1 and 1.8;
-  - fine-tuned on 2×2×2 labels: 2.6 and 1.9.
+  - fine-tuned on 2×2×2 labels: 2.9 and 1.7.
 
   At 600 K the AIMD Li ions barely leave their cages in 100 ps. MACE-MP-0 already diffuses there, while the other three models stay sub-diffusive, as AIMD does. The AIMD cell is smaller (a = 10.10 Å against 10.28 Å, 52 atoms), which may account for part of the remaining factor of 2.
-- **Fine-tuning brings the forces close to DFT.** The test set is the three configurations held out by both fine-tunes, and the reference is the 2×2×2 labels:
-  - the force RMSE falls from 216 meV Å<sup>−1</sup> (MACE-MP-0) to 59 and 70 meV Å<sup>−1</sup>;
+- **Fine-tuning brings the forces close to DFT.** The test set is the three configurations held out from training by both fine-tunes (their shared validation set), and the reference is the 2×2×2 labels:
+  - the force RMSE falls from 216 meV Å<sup>−1</sup> (MACE-MP-0) to 59 (Γ-point labels) and 57 meV Å<sup>−1</sup> (2×2×2 labels);
   - the systematic softening of the foundation's forces (slope 0.81) disappears, consistent with its overestimated diffusion;
-  - the Γ-point labels themselves differ from the 2×2×2 labels by 16 meV Å<sup>−1</sup>, about a quarter of the fine-tuned models' error.
-- **The slowdown from fine-tuning is a move towards DFT.** Under the same MD protocol, fine-tuning lowers the extrapolated σ(300 K) from 5.5 to 0.45 mS cm<sup>−1</sup> (Γ labels) and 0.26 mS cm<sup>−1</sup> (2×2×2 labels), and raises E<sub>a</sub> from 0.27 to 0.33-0.36 eV.
-  - Better k-point sampling of the labels does not change this: f = −0.22, which the pre-registered reading calls "not explained".
-  - The two fine-tuned runs used models from different training stages, which confounds the comparison between them.
+  - MatterSim, not fine-tuned, has 1.7 times their force error (100 meV Å<sup>−1</sup>) and almost no softening (slope 0.98), and it diffuses about as close to AIMD as they do. MACE-MP-0, the only model with marked softening, diffuses fastest; with four models, softening and force error cannot be separated as causes (Fig. 3d);
+  - the Γ-point labels themselves differ from the 2×2×2 labels by 16 meV Å<sup>−1</sup>, under 30 % of the fine-tuned models' error.
+- **The slowdown from fine-tuning is a move towards DFT.** Under the same MD protocol, fine-tuning lowers the extrapolated σ(300 K) from 5.5 to 0.45 mS cm<sup>−1</sup> (Γ labels) and 0.27 mS cm<sup>−1</sup> (2×2×2 labels), and raises E<sub>a</sub> from 0.27 to 0.33-0.36 eV.
+  - Better k-point sampling of the labels does not change this. With both fine-tunes at the same training stage (amendment A5), their σ(300 K) differ by less than their 1σ fit uncertainty: ln(σ<sub>2×2×2</sub>/σ<sub>Γ</sub>) = −0.51 ± 0.54, f = −0.20, which the fixed rule reads as "indistinguishable". At single temperatures the 2×2×2 run's D is 0.80, 1.40 and 0.95 times the Γ run's (600, 800, 1000 K), so neither is consistently faster.
+  - The pre-registered comparison used the July 2×2×2 run, made with the stage-one model, and gave f = −0.22 ("not explained"). At equal labels the training stage changes D by factors of 0.81-1.11 and σ(300 K) by 1.04, so both readings agree: the k-point sampling of the labels does not recover the slowdown.
 - **Extrapolated σ(300 K) is not a usable benchmark for this structure.**
   - The first 50 ps of the same 200-ps runs give 16 (MACE-MP-0) and 3.9 (MatterSim) mS cm<sup>−1</sup>.
   - Published AIMD extrapolations of ordered Li<sub>6</sub>PS<sub>5</sub>Cl range from 0.002 to 290 mS cm<sup>−1</sup>.
@@ -47,8 +48,8 @@ Measured conductivities are of S/Cl-disordered polycrystals, not of the ordered 
 |---|---:|---:|---:|
 | MACE-MP-0 (foundation) | 5.1 | 3.2 | 8.8 |
 | MatterSim | 1.9 | 1.9 | 1.8 |
-| Fine-tuned, Gamma labels (stage two) | 2.1 | 1.8 | 1.4 |
-| Fine-tuned, 2x2x2 labels (stage one) | 2.6 | 1.9 | 1.4 |
+| Fine-tuned, Γ-point labels | 2.1 | 1.8 | 1.4 |
+| Fine-tuned, 2×2×2 labels | 2.9 | 1.7 | 1.1 |
 | AIMD, D (cm<sup>2</sup> s<sup>−1</sup>) | 4.3e-6 | 1.7e-5 | 7.1e-7 |
 
 <sup>a</sup> At 600 K the AIMD Li MSD is still almost flat in the fit window (log-log slope 0.07), so this column compares sub-diffusive motion.
@@ -58,42 +59,47 @@ Measured conductivities are of S/Cl-disordered polycrystals, not of the ordered 
 | Model | vs 2×2×2 labels | vs Γ-point labels | Softening slope |
 |---|---:|---:|---:|
 | MACE-MP-0 (foundation) | 216 | 220 | 0.81 |
-| Fine-tuned, Gamma labels, stage two | 59.3 | 60.3 | 0.99 |
-| Fine-tuned, 2x2x2 labels, stage one | 70.3 | 73.2 | 0.99 |
+| MatterSim | 100 | 100 | 0.98 |
+| Fine-tuned, Γ-point labels | 59.3 | 60.3 | 0.99 |
+| Fine-tuned, 2×2×2 labels | 57.1 | 60.3 | 0.99 |
 | Γ-point labels themselves (label floor) | 16.3 | | |
 
-**Extrapolated to 300 K** (weighted Arrhenius fit of 600–1000 K, 1σ interval)
+**Extrapolated to 300 K** (weighted Arrhenius fit of 600–1000 K, re-analysis, 1σ interval)
 
 | Model | σ(300 K) (mS cm<sup>−1</sup>) | E<sub>a</sub> (eV) | σ / foundation |
 |---|---:|---:|---:|
 | MACE-MP-0 (foundation) | 5.54 [4.2, 7.3] | 0.266 ± 0.012 | 1.0 |
-| Fine-tuned, Gamma labels (stage two) | 0.454 [0.31, 0.67] | 0.335 ± 0.016 | 0.082 |
-| Fine-tuned, 2x2x2 labels (stage one) | 0.260 [0.19, 0.37] | 0.360 ± 0.014 | 0.047 |
-| MatterSim | 0.349 [0.25, 0.49] | 0.346 ± 0.014 | |
+| MatterSim | 0.344 [0.25, 0.48] | 0.346 ± 0.014 | |
+| Fine-tuned, Γ-point labels | 0.454 [0.31, 0.67] | 0.335 ± 0.016 | 0.082 |
+| Fine-tuned, 2×2×2 labels | 0.272 [0.19, 0.39] | 0.357 ± 0.015 | 0.049 |
+
+Both fine-tuned models are the stage-two models (after stochastic weight averaging); the July 2×2×2 run, made with the stage-one model, is in [docs/results.md](docs/results.md).
 <!-- END GENERATED headline -->
 
 D comes from kinisi (fit from 30 % of each run); σ(300 K) is a weighted Arrhenius extrapolation from 600, 800 and 1000 K, with the 1σ interval of the fit in brackets. Every table: [docs/results.md](docs/results.md). Every figure with its caption: [docs/figures.md](docs/figures.md).
 
 ![Fig. 3: Li diffusion coefficient of MACE-MP-0, MatterSim and both fine-tuned models against AIMD of the same ordered cell at 600-1200 K, the ratio to AIMD at each temperature, Li mean-squared displacements, and force softening against the diffusion overestimate](figures/main/fig3_diffusion.png)
 
-![Fig. 2: force parity of the foundation and the two fine-tuned models against the 2x2x2 DFT labels, force errors of all five models against both label sets with the label floor, per-element errors and centred energy errors](figures/main/fig2_forces.png)
+![Fig. 2: force parity of MACE-MP-0, MatterSim and the two fine-tuned models against the 2x2x2 DFT labels, their force errors against both label sets with the label floor, per-element errors and centred energy errors](figures/main/fig2_forces.png)
 
-![Fig. 4: the pre-registered comparison of the fine-tuned runs with the foundation run, the ratio of diffusion coefficients, the training-stage confound and the pressure shift](figures/main/fig4_finetune.png)
+![Fig. 4: the fine-tuned runs against the foundation run at equal training stage (sigma(300 K), Ea and the fixed reading), the ratio of diffusion coefficients, the effect of the training stage at equal labels, and the pressure shift](figures/main/fig4_finetune.png)
 
 ## Approach
 
-1. **Simulations.** All of them were run in July 2026 on NVIDIA A40 GPUs:
+1. **Simulations.** MD and fine-tuning ran on NVIDIA A40 GPUs and the DFT on CPU nodes, all in July 2026 except one MD series added in November 2026 (step 3):
    - Langevin NVT at 600, 800 and 1000 K, in the 52-atom cell and its 416-atom supercell, for 50-200 ps;
    - 27 configurations from 52-atom MACE-MP-0 MD, labelled with Quantum ESPRESSO (PBE) twice, at the Γ point and with a 2×2×2 k-point mesh;
    - two fine-tunes of MACE-MP-0 small, one on each label set ([docs/methods.md](docs/methods.md)).
 2. **Rebuild.** In October 2026 every raw file was copied and checksummed: 42 trajectories, QE runs, model files and logs.
    - The rules for reproducing the published values were committed before any trajectory was re-analysed ([protocol/](protocol/)). Every later change has a dated amendment.
-   - All 42 trajectories were re-analysed in one environment, with pymatgen and with kinisi over 11 random seeds.
+   - All 45 trajectories were re-analysed in one environment, with pymatgen and with kinisi over 11 random seeds.
 3. **Model identity.** The forces stored in each fine-tuned trajectory identify the model that produced it:
    - the Γ-label run used the stage-two model;
-   - the 2×2×2-label run used the stage-one model.
+   - the July 2×2×2-label run used the stage-one model;
+   - so the 2×2×2 stage-two model was run in November 2026 with the July MD settings (amendment A5, committed before the run), and its forces identify it too. The main figures compare the two stage-two fine-tunes.
 4. **AIMD reference** (amendment A3). The published Li<sub>6</sub>PS<sub>5</sub>Cl AIMD trajectories of Deng et al. (2017) have the same ordered S/Cl arrangement as the simulated cell. They are re-analysed with exactly the estimators used for the MLIP runs, and every model's D is compared with them at 600, 800 and 1000 K, without extrapolation.
-5. **Comparisons.** The figures and tables keep forces against DFT, diffusion against AIMD, and fine-tuned against foundation apart. A test checks that no fine-tuned value is placed next to an experimental one.
+5. **MatterSim against DFT** (amendment A4). MatterSim is evaluated on the labelled configurations like the MACE models, in float32 (the precision of its MD), after checking that it reproduces the forces stored in its July trajectories.
+6. **Comparisons.** The figures and tables keep forces against DFT, diffusion against AIMD, and fine-tuned against foundation apart. A test checks that no fine-tuned value is placed next to an experimental one.
 
 ## Reproduce
 
@@ -113,7 +119,7 @@ Everything is rebuilt from the committed `data/` in about a minute with numpy, p
   - the DFT labels, the Quantum ESPRESSO inputs and outputs, and the model predictions per atom;
   - the July 2026 published analysis, byte for byte.
 - **Not in this repository.**
-  - The 3.3 GB of trajectories are listed with their checksums in [data/raw_manifest.csv](data/raw_manifest.csv).
+  - The 3.7 GB of trajectories are listed with their checksums in [data/raw_manifest.csv](data/raw_manifest.csv).
   - The AIMD reference files (66 MB, BSD-3-Clause) are downloaded at a pinned commit and checked by [ingest/fetch_aimd.sh](ingest/fetch_aimd.sh); the values derived from them are in [data/references/aimd_deng2017/](data/references/aimd_deng2017/SOURCE.md).
   - The four fine-tuned models are attached to the [v1.0.0 release](https://github.com/E1582271-dotcom/MLIP-fine-tune/releases) under MIT, the licence of MACE-MP-0.
   - The GBRV pseudopotentials are downloaded and checked by [generation/labels/fetch_pseudos.sh](generation/labels/fetch_pseudos.sh).
@@ -127,16 +133,16 @@ Everything is rebuilt from the committed `data/` in about a minute with numpy, p
 - **Sampling.**
   - Each temperature has one trajectory, and σ(300 K) is an extrapolation from 600-1000 K with the Haven ratio taken as 1.
   - The fit interval does not include the spread between independent runs. That spread is large: independent 52-atom runs of MACE-MP-0 give 2.4-22 mS cm<sup>−1</sup>.
-  - At 600 K the Li MSD of MatterSim and of both fine-tuned runs is still sub-diffusive in the fit window ([docs/results.md](docs/results.md)).
+  - At 600 K the Li MSD of MatterSim and of every fine-tuned run is still sub-diffusive in the fit window ([docs/results.md](docs/results.md)).
 - **Structure.**
   - One ordered approximant of the S/Cl disorder.
   - A fixed cell at the PBE lattice parameter, 4.3 % larger than measured.
 - **Part B statistics.**
-  - Three configurations are held out by both fine-tunes, so no confidence intervals or significance statements are given.
+  - Three configurations are held out by both fine-tunes, so no confidence intervals or significance statements are given. They are also the fine-tunes' validation set, which chose the saved epochs, so the fine-tuned errors on them may be slightly optimistic.
   - No 1000 K configuration is held out.
   - The foundation and the Γ-label model had been evaluated against the Γ labels before the protocol was written (disclosed in [protocol/reproduction_rule.md](protocol/reproduction_rule.md)).
 - **Part C.**
-  - The two fine-tuned runs differ in training stage as well as in labels.
+  - The stage-two 2×2×2 run was decided after the stage-one result was known; amendment A5 fixed its readings before it ran.
   - The pseudopotentials and the size of the training set, the other candidate causes of the slowdown, are not varied.
 - **Model predictions.** All conductivities are model predictions, not measurements.
 
@@ -152,7 +158,7 @@ Everything is rebuilt from the committed `data/` in about a minute with numpy, p
 | [results/](results/) | Tables built from `data/` by `python -m mlipft tables` |
 | [figures/](figures/) | Four main and nine Extended Data figures (PDF, SVG, PNG) with per-panel source data |
 | [src/mlipft/](src/mlipft/) | Transport estimators, DFT agreement, tables, figures, the ingest of the raw files |
-| [generation/](generation/), [ingest/](ingest/) | Code that produced the raw data in July 2026; the cluster job of the re-analysis |
+| [generation/](generation/), [ingest/](ingest/) | Code that produced the raw data (July 2026, and the run of amendment A5); the cluster jobs of the re-analysis and of the MatterSim evaluation |
 
 ## Related projects
 

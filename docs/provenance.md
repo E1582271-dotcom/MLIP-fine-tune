@@ -5,10 +5,10 @@
 The simulations, DFT labels and fine-tunes were made between 30 June and 8 July 2026 on a GPU
 cluster (MD and fine-tuning on NVIDIA A40 GPUs, DFT on CPU nodes). A working repository analysed
 part of them and published its values on 11 July 2026. This repository was rebuilt in October
-2026 from two sources:
+2026 from two sources, and extended in November 2026 by amendments A4 and A5 (below):
 
 1. **The raw files.** Everything relevant on the cluster was copied, with sha256 sums computed
-   on the cluster and checked after each copy. That includes the 42 trajectories, the QE inputs
+   on the cluster and checked after each copy. That includes the 42 July trajectories, the QE inputs
    and outputs of both label sets, the label files, the model files, the training logs, the MD
    run logs and the batch job logs. Each file is listed in [data/raw_manifest.csv](../data/raw_manifest.csv).
    Two verified copies are kept outside the repository.
@@ -17,8 +17,8 @@ part of them and published its values on 11 July 2026. This repository was rebui
    [data/published/](../data/published/), byte for byte.
 
 `mlipft ingest` turns the raw files into `data/`. The DFT labels and the model predictions were
-ingested on the workstation. All 42 trajectories were re-analysed in one environment, a Linux CPU
-node of the cluster, with the package versions of
+ingested on the workstation. All 45 trajectories were re-analysed in one environment, a Linux CPU
+node of a cluster, with the package versions of
 [requirements-ingest.lock.txt](../requirements-ingest.lock.txt) (amendment A2; the job is in
 [ingest/](../ingest/)). The rules for comparing that re-analysis with the published values were
 committed first ([protocol/](../protocol/), commit `951b94c`), and the outcome is in
@@ -33,7 +33,8 @@ committed first ([protocol/](../protocol/), commit `951b94c`), and the outcome i
 | 52-atom, 100-ps MD of both universal potentials | 7-8 July | No |
 | Thermostat statistics of the 23 runs without a surviving July run log | from the trajectories | No |
 | Mean-squared displacement curves, T/E/P time series, pressure | from the trajectories | No |
-| Per-atom predictions of all models on both label sets | 26 October | No |
+| Per-atom predictions of all models on both label sets | 26 October (MatterSim: 2 November, amendment A4) | No |
+| MD of the stage-two 2x2x2 fine-tune, 416 atoms, 200 ps (amendment A5) | 2 November | New run |
 
 ## External data
 
@@ -56,7 +57,12 @@ committed first ([protocol/](../protocol/), commit `951b94c`), and the outcome i
     said;
   - the 2x2x2 run (`ftK`) used the stage-one model (epoch 89), not stage two, because its job
     loaded `models/li6ps5cl_ft27k.model`;
-  - the MACE-MP-0 production run matches the foundation model.
+  - the MACE-MP-0 production run matches the foundation model;
+  - the run of amendment A5 (`ftK2`) matches the stage-two 2x2x2 model (epoch 119), as intended;
+  - the July MatterSim model (`mattersim-v1.0.0-1M`) reproduces the forces stored in the 416-atom
+    MatterSim runs to at most 0.0021 meV/Å (amendment A4).
+  The run logs cannot tell these apart: those of both 2x2x2 runs record `baseline: true,
+  fine_tuned: false`, like those of the MACE-MP-0 runs.
 - **Training logs.** For the Gamma fine-tune, MACE's logged training errors cover 20 of the 22
   training configurations (amendment A1). All logged validation errors are reproduced exactly.
 - **Equilibration lengths** are not in the run records; the July batch job logs give them:
@@ -91,7 +97,9 @@ committed first ([protocol/](../protocol/), commit `951b94c`), and the outcome i
 | 11 July | Values published (the files in `data/published/`) |
 | 26 October | Raw files copied and checked; protocol committed; DFT and model ingest |
 | 27 October | Trajectory re-analysis on a cluster CPU node (amendment A2) |
-| 27 October | AIMD reference added (amendment A3) |
+| 27 October | AIMD reference added (amendment A3); amendments A4 and A5 committed |
+| 2 November | MatterSim evaluated on the 27 labelled configurations (A4); stage-two 2x2x2 MD on an NVIDIA A40 GPU (A5) |
+| 3 November | Re-analysis of the A5 run on a cluster CPU node, in the A2 environment |
 
 Before 9 July the working repository fitted without weights, and its commit history quotes those
 values (for example 5.57 mS/cm for MACE-MP-0). Only the weighted fits are used here.

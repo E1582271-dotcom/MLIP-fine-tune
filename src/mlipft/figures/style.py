@@ -7,11 +7,14 @@ closed frame with ticks on the bottom and left only.
 Every colour and marker used by a figure comes from this module (``tests/test_figures.py`` checks
 that no figure module writes a hex colour of its own):
 
-* Fine-tuned models are blue (NAVY for the Gamma-label model that drove MD, BLUE for the 2x2x2-label
-  one, BLUE_MID and BLUE_LIGHT for the two stages that did not drive MD); universal potentials are
-  red (MACE-MP-0 DEEP_RED, MatterSim LIGHT_RED); reference data are black and grey.
+* Fine-tuned models are blue (NAVY for the Gamma-label models, BLUE for the 2x2x2-label ones);
+  universal potentials are red (MACE-MP-0 DEEP_RED, MatterSim LIGHT_RED); reference data are black
+  and grey.
 * Fill means training stage and nothing else: stage two (and every universal potential) filled,
-  stage one open (``STAGE_FILLED``, ``MD_STAGE``).
+  stage one open (``STAGE_FILLED``, ``MD_STAGE``). The main figures show the stage-two fine-tunes
+  and name them without a stage; a stage-one model appears only next to its stage-two counterpart
+  (Extended Data, the run inventory of the design figure and the stage comparison of the fine-tuning
+  figure).
 * Marker shape means run type and nothing else: production run circle, 52-atom run triangle,
   Cl-excess x = 0 run inverted triangle (``RUN_MARKERS``), AIMD a filled black square
   (``AIMD_MARKER``), a measured value a light-grey diamond (``MEASURED_MARKER``, Extended Data only).
@@ -70,17 +73,18 @@ WHITE = "#FFFFFF"
 
 # ------------------------------------------------------------------------------------------ models
 # Colour follows the label set of a fine-tune (Gamma navy, 2x2x2 blue); fill follows its training stage.
-MODEL_COLORS = {"foundation": DEEP_RED, "mattersim": LIGHT_RED,
-                "ftG": NAVY, "ftG_s1": NAVY, "ftG_s2": NAVY, "ftK": BLUE, "ftK_s1": BLUE, "ftK_s2": BLUE}
+MODEL_COLORS = {"foundation": DEEP_RED, "mattersim": LIGHT_RED, "ftG": NAVY, "ftG_s1": NAVY, "ftG_s2": NAVY,
+                "ftK": BLUE, "ftK2": BLUE, "ftK_s1": BLUE, "ftK_s2": BLUE}
 MODEL_LABELS = {"foundation": "MACE-MP-0", "mattersim": "MatterSim", "ftG": "Fine-tuned, Gamma labels",
-                "ftK": "Fine-tuned, 2x2x2 labels", "ftG_s1": "Gamma labels, stage one",
-                "ftG_s2": "Gamma labels, stage two", "ftK_s1": "2x2x2 labels, stage one",
-                "ftK_s2": "2x2x2 labels, stage two"}
+                "ftK": "Fine-tuned, 2x2x2 labels", "ftK2": "Fine-tuned, 2x2x2 labels",
+                "ftG_s1": "Gamma labels, stage one", "ftG_s2": "Gamma labels, stage two",
+                "ftK_s1": "2x2x2 labels, stage one", "ftK_s2": "2x2x2 labels, stage two"}
 UNIVERSAL_MODELS = ("foundation", "mattersim")
 STAGE_FILLED = {"s1": False, "s2": True}  # stage two filled, stage one open; universal models filled
-# Stage of the model that drove each fine-tuned MD run (ftG: stage two, ftK: stage one). The cross-evaluation
-# table (drove_md column) is the authority; tests/test_figures.py checks that the two agree.
-MD_STAGE = {"ftG": "s2", "ftK": "s1"}
+# Stage of the model that drove each fine-tuned MD run family (ftG: stage two; ftK, the July 2x2x2 run: stage
+# one; ftK2, the 2x2x2 run of amendment A5: stage two). The cross-evaluation table (drove_md column) is the
+# authority; tests/test_figures.py checks that the two agree.
+MD_STAGE = {"ftG": "s2", "ftK": "s1", "ftK2": "s2"}
 
 # ----------------------------------------------------------------------------------------- markers
 MLIP_MARKER = "o"

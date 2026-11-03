@@ -1,12 +1,13 @@
 """The Arrhenius fit of every series (Extended Data, registry key "arrhenius").
 
-One panel per series (14), in groups: the universal potentials on Li6PS5Cl (52-atom tiers and
-the 416-atom production runs), the two fine-tuned models, and the Cl-excess series under
-MACE-MP-0. Each panel shows the per-run conductivity with its kinisi uncertainty, the quoted
-weighted fit (published value where one exists, otherwise the re-analysis) extrapolated to 300 K
-with its 1-sigma band, and a residual strip in units of each point's ln-space uncertainty. Colour
-by model (Cl content for the Cl-excess series), marker shape by run type, open markers for the stage-one model.
-No measured value is shown: the figure contains the fine-tuned series.
+One panel per series (15), in groups: the universal potentials on Li6PS5Cl (52-atom tiers and
+the 416-atom production runs), the three fine-tuned production series (Gamma labels, stage two;
+2x2x2 labels, stage one and stage two), and the Cl-excess series under MACE-MP-0. Each panel shows
+the per-run conductivity with its kinisi uncertainty, the quoted weighted fit (published value
+where one exists, otherwise the re-analysis) extrapolated to 300 K with its 1-sigma band, and a
+residual strip in units of each point's ln-space uncertainty. Colour by model (Cl content for the
+Cl-excess series), marker shape by run type, open markers for the stage-one model. No measured value
+is shown: the figure contains the fine-tuned series.
 """
 from __future__ import annotations
 
@@ -24,7 +25,7 @@ from . import common, registry, style
 
 KEY = "arrhenius"
 NAME = registry.number(KEY)
-PANELS = "abcdefghijklmn"
+PANELS = "abcdefghijklmno"
 WIDTH, HEIGHT = 183.0, 240.0
 FITS = paths.RESULTS / "fits.csv"
 TRANSPORT = paths.MD / "transport.csv"
@@ -37,12 +38,16 @@ ROWS = (
     ("Universal potentials, Li$_6$PS$_5$Cl", ("mace_52_050", "mace_52_100", "mace_52_150", "mace_416_200")),
     (None, ("mattersim_52_050", "mattersim_52_100", "mattersim_52_150", "mattersim_416_200")),
     ("Fine-tuned MACE-MP-0, Li$_6$PS$_5$Cl (same protocol as the 416-atom production runs)",
-     ("ftG_416_200", "ftK_416_200")),
+     ("ftG_416_200", "ftK_416_200", "ftK2_416_200")),
     ("Cl-excess series Li$_{6-x}$PS$_{5-x}$Cl$_{1+x}$, MACE-MP-0", ("clx000_416_150", "clx025_408_150",
                                                                     "clx050_400_150", "clx075_392_150")),
 )
-TITLES = {"foundation": "MACE-MP-0", "mattersim": "MatterSim", "ftG": "Fine-tuned, Gamma labels",
-          "ftK": "Fine-tuned, 2x2x2 labels"}
+# Fine-tuned run families are titled with their label set and the training stage of the model that drove the MD
+LABEL_SETS = {"ftG": "Gamma", "ftK": "2x2x2", "ftK2": "2x2x2"}
+STAGE_WORDS = {"s1": "stage one", "s2": "stage two"}
+TITLES = {"foundation": "MACE-MP-0", "mattersim": "MatterSim",
+          **{family: f"Fine-tuned, {labels}, stage {style.MD_STAGE[family][1:]}"
+             for family, labels in LABEL_SETS.items()}}
 X_LIMITS = (0.75, 3.55)
 LABELLED_TEMPERATURES = (1000, 600, T_REF_K)  # written above the data columns (800 K has no room)
 MARKER_SIZE = 2.8
@@ -53,6 +58,8 @@ Z_LIMIT = 3.6
 def _load() -> tuple[pd.DataFrame, pd.DataFrame]:
     fits = common.read(FITS)
     fits = fits[fits["quoted"]].set_index("series")
+    if set(fits.index) != set(_order()):
+        raise ValueError("ROWS must list every series with a quoted fit in fits.csv, once")
     transport = common.read(TRANSPORT)
     return fits, transport
 
@@ -203,9 +210,10 @@ def make() -> list[Path]:
             letter = next(letters)
             L.letter(ax, letter, x0 - 0.8 if column else 4.5, panel_top - 2.6)
             written.append(_save_panel(frame, fit, letter))
-        if len(row) < 4:
-            _key(L.axes(left + len(row) * (width + gap) + 6.0, panel_top, 2 * width, main_h + res_gap + res_h,
-                        frame="none"))
+        if len(row) < 4:  # the key fills the free columns, from the level of the panel titles down
+            key_left = left + len(row) * (width + gap) + 2.0
+            _key(L.axes(key_left, panel_top - title_h + 0.5, WIDTH - 1.0 - key_left,
+                        title_h - 0.5 + main_h + res_gap + res_h, frame="none"))
         top = panel_top + main_h + res_gap + res_h + row_gap
     if "".join(_letters_used(letters)) != PANELS:
         raise ValueError("panel letters do not match PANELS")
@@ -213,23 +221,23 @@ def make() -> list[Path]:
 
 
 def _key(ax) -> None:
-    """What the marks of every panel mean (a frameless axes in the empty part of the fine-tuned row)."""
+    """What the marks of every panel mean (a frameless axes in the empty column of the fine-tuned row)."""
     ax.set_xticks([])
     ax.set_yticks([])
     glyph = {"color": style.BLACK, "markeredgecolor": style.BLACK, "markerfacecolor": style.BLACK}
     handles = [common.handle(common.model_style("foundation", "production", size=MARKER_SIZE, **glyph),
-                             "416-atom run at 600, 800 or 1000 K (pymatgen); bar, kinisi 1-sigma"),
+                             "416-atom run at 600, 800 or 1000 K\n(pymatgen); bar, kinisi 1-sigma"),
                common.handle(common.model_style("foundation", "cell_52", size=MARKER_SIZE, **glyph), "52-atom run"),
                common.handle(common.model_style("foundation", "clexcess", size=MARKER_SIZE, **glyph),
                              "Cl-excess run (Cl content by colour)"),
                common.handle(common.model_style("ftK", "production", size=MARKER_SIZE, edge=0.6,
                                                 **{**glyph, "markerfacecolor": style.WHITE}),
-                             "open: stage-one model (2x2x2 labels)"),
+                             "open: stage-one model; filled:\nstage two or universal potential"),
                Line2D([0], [0], color=style.BLACK, lw=0.8, label="quoted fit of ln($\\sigma$T) against 1/T"),
                Line2D([0], [0], color=style.BLACK, lw=0.8, ls=(0, (3, 1.5)),
                       label="the same fit extrapolated to 300 K"),
                Patch(facecolor=style.BLACK, alpha=0.18, edgecolor="none", label="1-sigma band of the fit"),
-               Patch(facecolor=style.BAND, edgecolor="none", label="residual strips: +/-1 s.d. of the point")]
+               Patch(facecolor=style.BAND, edgecolor="none", label="residual strips: +/-1 s.d.\nof the point")]
     ax.legend(handles=handles, loc="upper left", fontsize=style.SMALL, handlelength=1.6, handletextpad=0.6,
               labelspacing=0.55, borderaxespad=0.0, title="Every panel", title_fontsize=style.FONT_SIZE,
               alignment="left")
@@ -272,8 +280,12 @@ def _caption() -> str:
         return ", ".join(f"**{letter[s]}**" for s in series)
 
     def label(series: str) -> str:
-        """The series label for use mid-sentence ("fine-tuned on ...", not "Fine-tuned on ...")."""
+        """The series label for use mid-sentence ("fine-tuned on ...", not "Fine-tuned on ..."), naming the
+        training stage of a fine-tune where the catalogue label does not."""
         text = str(fits.loc[series, "label"])
+        stage = style.MD_STAGE.get(str(fits.loc[series, "model"]))
+        if stage is not None and "stage" not in text:
+            text = text.replace(" labels", f" labels ({STAGE_WORDS[stage]})", 1)
         return text[0].lower() + text[1:] if text.startswith("Fine-tuned") else text
 
     reanalysed = [label(s) for s in order if fits.loc[s, "source"] == "reanalysis"]
@@ -286,8 +298,9 @@ def _caption() -> str:
         "150 ps (independent trajectories) and " + bold("mace_416_200") + ", its 416-atom, 200-ps production runs; "
         + bold("mattersim_52_050", "mattersim_52_100", "mattersim_52_150", "mattersim_416_200")
         + ", the same for MatterSim (the universal potentials on Li6PS5Cl); " + bold("ftG_416_200")
-        + ", MACE-MP-0 fine-tuned on the Gamma labels (stage two) and " + bold("ftK_416_200")
-        + ", on the 2x2x2 labels (stage one), both under the production protocol; " + bold(*cl)
+        + ", MACE-MP-0 fine-tuned on the Gamma labels (stage-two model), " + bold("ftK_416_200")
+        + ", on the 2x2x2 labels with the stage-one model (the July run) and " + bold("ftK2_416_200")
+        + ", with the stage-two model (amendment A5), all three under the production protocol; " + bold(*cl)
         + f", the Cl-excess series Li(6-x)PS(5-x)Cl(1+x) under MACE-MP-0 with x = {xs} (summarised in "
         f"{registry.label('clexcess')}; in these four panels the blues encode Cl content, light to dark for "
         f"x = {xs}, and are unrelated to the blues of the fine-tuned models, which never share a panel with them). "

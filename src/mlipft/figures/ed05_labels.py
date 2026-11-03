@@ -346,8 +346,8 @@ def _caption() -> str:
         f"({raw.min():.2f} to {raw.max():.2f} meV/atom; dashed line, the mean offset over T22, "
         f"{offset:.2f} meV/atom, which the energy comparisons subtract; centred RMSE over All27 "
         f"{f27.loc['all', 'energy_rmse_centred_meV_atom']:.2f} meV/atom), force RMSE over all components of a "
-        f"configuration (dashed line, the All27 value {f27.loc['all', 'force_rmse_meV_A']:.1f} meV/A, the label "
-        f"floor used in {registry.label('forces')}; largest {worst['force_rmse_meV_A']:.1f} meV/A for "
+        f"configuration (dashed line, the All27 value {f27.loc['all', 'force_rmse_meV_A']:.1f} meV/A; "
+        f"{registry.label('forces')} uses the H3 value; largest {worst['force_rmse_meV_A']:.1f} meV/A for "
         f"{worst['config_id']}) and pressure (RMSE {f27.loc['all', 'pressure_rmse_kbar']:.2f} kbar"
         + ("; the Gamma pressure is the higher one for every configuration" if higher else "")
         + "). Single values per configuration, no error bars. "
