@@ -162,9 +162,12 @@ Everything is rebuilt from the committed `data/` in about a minute with numpy, p
 
 ## Related projects
 
-- [Solid-Electrolyte-Screening](https://github.com/E1582271-dotcom/Solid-Electrolyte-Screening) screens Materials Project entries down to 62 candidate Li–S compositions.
-- [Solid-Electrolyte-MLIP-MD](https://github.com/E1582271-dotcom/Solid-Electrolyte-MLIP-MD) classifies those 62 compositions with the same un-fine-tuned MACE-MP-0 calibrated here.
-- [Solid-Electrolyte-Inverse-Design](https://github.com/E1582271-dotcom/Solid-Electrolyte-Inverse-Design) generates new candidate structures.
+Part of a computational portfolio on sulfide solid electrolytes:
+
+- [Solid-Electrolyte-Screening](https://github.com/E1582271-dotcom/Solid-Electrolyte-Screening) screens all 21,712 Li-containing Materials Project entries down to 62 candidate Li–S compositions.
+- [Solid-Electrolyte-MLIP-MD](https://github.com/E1582271-dotcom/Solid-Electrolyte-MLIP-MD) classifies those 62 compositions with MACE-MP-0 molecular dynamics under a pre-registered protocol (11 fast conductors).
+- [Solid-Electrolyte-Inverse-Design](https://github.com/E1582271-dotcom/Solid-Electrolyte-Inverse-Design) generates Li–P–S structures outside the Materials Project with MatterGen (43 stable, unique and novel; not yet simulated).
+- [MACE-Envtok](https://github.com/E1582271-dotcom/MACE-Envtok) is a from-scratch implementation of MACE, trained with multi-node DDP on the EnvTok subset of OMat24.
 
 ## Citation and license
 
